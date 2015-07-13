@@ -1,0 +1,2 @@
+recursive-include fibbingnode/res *
+recursive-include fibbingnode/res/templates *
