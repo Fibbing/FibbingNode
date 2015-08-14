@@ -69,11 +69,11 @@ class Merger(object):
         self.reqs = requirements
         log.info('Preparing IGP graph')
         self.g = prepare_graph(graph, requirements)
-        self.ecmp.clear()
         log.info('Computing SPT')
         self._p = ssu.all_shortest_paths(self.g)
         lsa = []
         for dest, dag in requirements.iteritems():
+            self.ecmp.clear()
             log.info('Evaluating requirement %s', dest)
             self.dest = dest
             self.dag = dag
