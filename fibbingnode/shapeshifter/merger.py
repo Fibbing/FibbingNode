@@ -364,6 +364,8 @@ class Merger(object):
                                     # Schedule the neighbor for update
                                     pq.push((self.get_delta(e), e))
                                 else:
+                                    log.debug('Failed to increase the %s '
+                                              'as an ECMP dep of %s', e, n)
                                     failed = True
                                     break
                         else:
