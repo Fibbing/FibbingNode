@@ -35,6 +35,10 @@ class Node(object):
         return bool(self.forced_nhs) and (self.fake == subtype if
                                           subtype else True)
 
+    def has_any_fake_node(self):
+        return self.has_fake_node(Node.GLOBAL)\
+               or self.has_fake_node(Node.LOCAL)
+
     def __repr__(self):
         if self.forced_nhs:
             return '%s - Fake: %s ]%s,%s[ %s' % (self.name, self.fake, self.lb,
@@ -204,7 +208,7 @@ class Merger(object):
         for n, node in map(lambda x: (x[0], self.node(x[0])),
                            filter(lambda x: x[1] > 1,
                                   self.dag.out_degree_iter())):
-            if node.has_fake_node():
+            if node.has_any_fake_node():
                 log.debug('%s does ECMP and has a fake node', n)
                 self.ecmp[n].add(n)
             else:
@@ -213,7 +217,7 @@ class Merger(object):
                 for p in paths:
                     # Try to find the first fake node for each path
                     for h in p[:-1]:
-                        if self.node(h).has_fake_node():
+                        if self.node(h).has_any_fake_node():
                             f.add(h)
                             break
                 if len(f) > 0 and len(f) < len(paths):
@@ -238,12 +242,13 @@ class Merger(object):
                 continue
             visited.add(node_name)
             n = self.node(node_name)
-            if n.has_fake_node():
+            if n.has_fake_node(Node.GLOBAL):
                 lb = self.initial_lb_of(node_name)
                 log.debug('Setting initial lb of %s to: %s', node_name, lb)
                 n.lb = lb
             else:
-                log.debug('%s does not have a fake node, exploring neighbours',
+                log.debug('%s does not have a global fake node, '
+                          'exploring neighbours',
                           node_name)
                 to_visit |= set(self.g.predecessors_iter(node_name))
 
@@ -255,7 +260,7 @@ class Merger(object):
                 log.debug('Not considering %s for initial LB of %s as '
                           'it is a destination', nei, node)
                 continue
-            if self.node(nei).has_fake_node():
+            if self.node(nei).has_any_fake_node():
                 log.debug('Not considering %s for initial LB of %s as '
                           'it has a fake node', node, nei)
                 continue
@@ -276,7 +281,7 @@ class Merger(object):
                 # Status of this path
                 is_pure = True
                 for n in p[:-1]:
-                    if self.node(n).has_fake_node():
+                    if self.node(n).has_fake_node(Node.GLOBAL):
                         is_pure = False
                         break
                     if node == n:
@@ -332,7 +337,7 @@ class Merger(object):
                 # This node has already been updated
                 log.debug('Ignoring delta %s for %s', delta, node)
                 continue
-            log.debug('Evaluating %s', node)
+            log.debug('Evaluating %s (%s)', node, delta)
             fixed_neighbors = self.fixed_nodes_for(node)
             # Explore its neighbors
             for n, nei in self.fake_neighbors(node):
@@ -412,15 +417,15 @@ class Merger(object):
         dag_spt = ssu.dag_paths_from_leaves(self.dag, self.dest)
         for path in dag_spt:
             log.debug('Trying to merge along %s', path)
-            fake_nodes = [n for n in path[:-1]
-                          if self.node(n).has_fake_node()]
-            for idx, n in enumerate(fake_nodes[:-1]):
-                succ = fake_nodes[idx+1]
+            fake_nodes = [(idx, n) for idx, n in enumerate(path[:-1])
+                          if self.node(n).has_any_fake_node()]
+            for idx, (n_pos, n) in enumerate(fake_nodes[:-1]):
+                _, succ = fake_nodes[idx+1]
                 if self.node(n).fake == Node.GLOBAL\
                    and self.node(succ).fake == Node.GLOBAL:
-                    self.merge(n, succ, path, idx)
+                    self.merge(n, succ, path[n_pos + 1])
 
-    def merge(self, n, succ, path, n_idx):
+    def merge(self, n, succ, nh):
         """Try to merge n into its successor fake node, along the given path"""
         log.debug('Trying to merge %s into %s', n, succ)
         if not self.dag_include_spt(n, succ):
@@ -429,7 +434,7 @@ class Merger(object):
             new_lb, new_ub = self.combine_ranges(n, succ)
             log.debug('Merging %s into %s would result in bounds in %s set to '
                       ']%s, %s[', n, succ, succ, new_lb, new_ub)
-            self.apply_merge(n, succ, new_lb, new_ub, path[n_idx + 1])
+            self.apply_merge(n, succ, new_lb, new_ub, nh)
         except TypeError:  # Couldn't find a valid range, skip
             return
 
@@ -519,7 +524,7 @@ class Merger(object):
                       ' with the same cost!', n, s)
             undo_all()
             return
-        remove_n = not node.has_fake_node()
+        remove_n = not node.has_fake_node(Node.GLOBAL)
         if remove_n:
             log.debug('Also removing %s from its ECMP deps has it no longer '
                       'has a fake node.', n)
