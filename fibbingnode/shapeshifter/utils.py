@@ -126,3 +126,18 @@ class _ReverseCompare(object):
 
 """A tuple whose fields can be accessed by their names representing a LSA"""
 LSA = collections.namedtuple('LSA', 'node nh cost dest')
+
+
+class ExtendedLSA(object):
+    def __init__(self, node, nh, routes):
+        self.node = node
+        self.nh = nh
+        self.routes = routes
+
+    def __repr__(self):
+        return 'EXTLSA(node=%s, nh=%s, routes=%s)' % (self.node,
+                                                      self.nh,
+                                                      self.routes)
+
+
+ExtLSARoute = collections.namedtuple('ExtLSARoute', 'dest cost')
