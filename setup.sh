@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if [[ $EUID -ne 0 ]]; then
-   echo "This script might need roo privileges!" 1>&2
+   echo "This script might need root privileges!" 1>&2
 fi
 
 CWD=`dirname $0`
