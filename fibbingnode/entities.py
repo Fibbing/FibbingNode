@@ -332,13 +332,13 @@ class RootRouter(Router):
     """
 
     def __init__(self, **kwargs):
-        super(RootRouter, self).__init__(id='root', namespaced=True, **kwargs)
+        super(RootRouter, self).__init__(**kwargs)
         # ospf prio set to 2 to be the DR of all fibbing routers
         self.ospf_priority = 2
         # Register the physical ports apart
         self.physical_links = []
         self.lsdb_log_file = None
-        self.lsdb_log_file_name = '%s_%s' % (self.id, LSDB_LOG_PATH)
+        self.lsdb_log_file_name = '%s_%s' % (LSDB_LOG_PATH, self.id)
         if os.path.exists(self.lsdb_log_file_name):
             os.unlink(self.lsdb_log_file_name)
         os.mkfifo(self.lsdb_log_file_name)
@@ -365,7 +365,7 @@ class RootRouter(Router):
         self.lsdb.stop()
         super(RootRouter, self).delete()
         force(self.lsdb_log_file.close)
-        force(os.unlink, LSDB_LOG_PATH)
+        force(os.unlink, self.lsdb_log_file_name)
 
     def parse_lsdblog(self):
         def fifo_readline(f):

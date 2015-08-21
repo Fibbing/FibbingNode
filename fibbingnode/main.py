@@ -160,11 +160,10 @@ def handle_args():
     if not os.path.exists(path):
         instance_count = 1
     else:
-        with open('r', path) as f:
+        with open(path, 'r') as f:
             instance_count = int(f.read())
-    instance_name = 'c%s' % instance_count
-    with open('w', path) as f:
-        f.write('%s' % instance_count + 1)
+    with open(path, 'w') as f:
+        f.write('%s' % (instance_count + 1))
 
     # Update default config
     if args.cfg:
@@ -184,7 +183,7 @@ def handle_args():
         log.error('The fibbing node will not be connected to any physical ports!')
     else:
         log.info('Using the physical ports: %s', ports)
-    return ports, instance_name
+    return ports, instance_count
 
 
 def main():

@@ -46,7 +46,7 @@ class FibbingManager(object):
         self.instance = instance_number
         self.name = 'c%s' % instance_number
         self.nodes = {}
-        self.bridge = Bridge('br0')
+        self.bridge = Bridge('br0', self.name)
         self.root = None
         net = ip_network(CFG.get(DEFAULTSECT, 'base_net'))
         controller_prefix = CFG.getint(DEFAULTSECT, 'controller_prefixlen')
@@ -72,8 +72,8 @@ class FibbingManager(object):
         :param nodecount: Pre-allocate nodecount fibbing nodes
         """
         # Create root node
-        self.root = self.add_node(id='%s_root' % self.name, cls=RootRouter, start=False)
-        del self.nodes['%s_root' % self.name]  # The root node should not originate LSA
+        self.root = self.add_node(id='root', cls=RootRouter, start=False)
+        del self.nodes[self.root.id]  # The root node should not originate LSA
         self.graph_thread.start()
         self.json_thread.start()
         # And map all physical ports to it
@@ -113,7 +113,7 @@ class FibbingManager(object):
         :param id: The name of the new node
         :param cls: The class to use to instantiate it
         """
-        n = cls(id=id, namespaced=True)
+        n = cls(id=id, prefix=self.name, namespaced=True)
         self.nodes[n.id] = n
         log.info('Created node %s', n.id)
         return n
@@ -179,7 +179,6 @@ class FibbingManager(object):
             link.delete()
         for node in self.nodes.values():
             node.delete()
-        self.root.delete()
         self.bridge.delete()
 
     def install_route(self, network, points, advertize):

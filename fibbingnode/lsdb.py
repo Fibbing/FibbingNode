@@ -352,8 +352,8 @@ class LSDB(object):
         except Exception as e:
             log.error('Incorrect private IP addresses binding file')
             log.error(str(e))
-            self.private_address_binding = None
-            self.router_private_address = None
+            self.private_address_binding = {}
+            self.router_private_address = {}
         self.last_line = ''
         self.transaction = None
         self.graph = DiGraph()
@@ -472,6 +472,7 @@ class LSDB(object):
                             self.transaction.add_lsa(lsa)
                     if lsa.push_update_on_remove() or not action == REM:
                         commit = True
+                self.queue.task_done()
             except Empty:
                 if self.transaction:
                     log.debug('Splitting transaction due to timeout')
@@ -483,7 +484,6 @@ class LSDB(object):
                 new_graph = self.build_graph()
                 # Compute graph difference and update it
                 self.update_graph(new_graph)
-            self.queue.task_done()
 
     def __str__(self):
         strs = [str(lsa) for lsa in chain(self.routers.values(),
