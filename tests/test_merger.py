@@ -7,6 +7,8 @@ import networkx as nx
 
 from fibbingnode import log
 
+import collections
+
 #
 # Useful tip to selectively disable test: @unittest.skip('reason')
 #
@@ -30,7 +32,7 @@ def check_fwd_dags(fwd_req, topo, lsas, solver):
                 if not dest_in_graph:
                     topo.add_edge(s, dest, weight=solver.new_edge_weight)
     fake_nodes = {}
-    local_fake_nodes = {}
+    local_fake_nodes = collections.defaultdict(list)
     f_ids = set()
     for lsa in lsas:
         if lsa.cost > 0:
@@ -44,7 +46,7 @@ def check_fwd_dags(fwd_req, topo, lsas, solver):
                       '%s - %s - %s - %s - %s [-> %s]',
                       lsa.node, cost, f_id, lsa.cost - cost, lsa.dest, lsa.nh)
         else:
-            local_fake_nodes[(lsa.node, lsa.dest)] = lsa.nh
+            local_fake_nodes[(lsa.node, lsa.dest)].append(lsa.nh)
             log.debug('Added a locally-visible fake node: %s -> %s',
                       lsa.node, lsa.nh)
 
@@ -66,14 +68,16 @@ def check_fwd_dags(fwd_req, topo, lsas, solver):
                         dag.add_edge(u, nh)  # Replace by correct next-hop
                         break
                     except KeyError:
-                        try:  # Are we using a locally-visible one?
+                            # Are we using a locally-visible one?
                             nh = local_fake_nodes[(u, dest)]
-                            log.debug('%s uses a locally-visible fake node '
-                                      'to get to %s', u, nh)
-                            dag.add_edge(u, nh)  # Replace by true nh
-                            break
-                        except KeyError:
-                            dag.add_edge(u, v)  # Otherwise follow the SP
+                            if nh:
+                                log.debug('%s uses a locally-visible fake node'
+                                          ' to get to %s', u, nh)
+                                for h in nh:
+                                    dag.add_edge(u, h)  # Replace by true nh
+                                break
+                            else:
+                                dag.add_edge(u, v)  # Otherwise follow the SP
         # Now that we have the current fwing dag, compare to the requirements
         for n in req_dag:
             successors = set(dag.successors(n))
@@ -248,11 +252,15 @@ class Gadgets():
 
 
 class MergerTestCase(unittest.TestCase):
+    def __init__(self, *args, **kwargs):
+        super(MergerTestCase, self).__init__(*args, **kwargs)
+        self.solver_provider = merger.PartialECMPMerger
+
     def setUp(self):
         self.gadgets = Gadgets()
 
     def _test(self, igp_topo, fwd_dags, expected_lsa_count):
-        solver = merger.PartialECMPMerger()
+        solver = self.solver_provider()
         lsas = solver.solve(igp_topo, fwd_dags)
         self.assertTrue(check_fwd_dags(fwd_dags, igp_topo, lsas, solver))
         self.assertTrue(len(lsas) == expected_lsa_count)
