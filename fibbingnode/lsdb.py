@@ -507,7 +507,13 @@ class LSDB(object):
         for ip in new_graph.nodes_iter():
             addr = ip_address(ip)
             if addr in base_net:
-                id = int(addr) & ((1 << controller_prefix) - 1)
+                """1. Compute address diff to remove base_net
+                   2. Right shift to remove host bits
+                   3. Mask with controller mask
+                """
+                id = (((int(addr) - int(base_net.network_address)) >>
+                       base_net.max_prefixlen - controller_prefix) &
+                      ((1 << controller_prefix) - 1))
                 self.controllers[id].append(ip)
         # Contract them on the graph
         for id, ips in self.controllers.iteritems():

@@ -50,8 +50,10 @@ class FibbingManager(object):
         self.root = None
         net = ip_network(CFG.get(DEFAULTSECT, 'base_net'))
         controller_prefix = CFG.getint(DEFAULTSECT, 'controller_prefixlen')
-        controller_net = ip_address(int(net.network_address + instance_number)
-                                    >> net.max_prefixlen - controller_prefix)
+        host_prefix = net.max_prefixlen - controller_prefix
+        controller_base = (int(net.network_address) +
+                           (instance_number << host_prefix))
+        controller_net = ip_address(controller_base)
         self.net = ip_network('%s/%s' % (controller_net, controller_prefix))
         self.graph_thread = Thread(target=self.infer_graph, name="Graph inference thread")
         self.json_proxy = SJMPServer(hostname=CFG.get(DEFAULTSECT, 'json_hostname'),
