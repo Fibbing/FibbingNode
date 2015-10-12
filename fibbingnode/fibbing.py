@@ -177,6 +177,7 @@ class FibbingManager(object):
         self.json_proxy.stop()
         for link in self.links:
             link.delete()
+        self.root.delete()
         for node in self.nodes.values():
             node.delete()
         self.bridge.delete()
