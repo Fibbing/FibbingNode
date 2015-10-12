@@ -32,7 +32,8 @@ SEP_ACTION = '|'
 SEP_GROUP = ' '
 SEP_INTRA_FIELD = ':'
 SEP_INTER_FIELD = ';'
-# Unused because we currently implicitly rely on it by doing for line in ... in parse_lsdblog()
+# Unused because we currently implicitly rely on it by doing
+# for line in ... in parse_lsdblog()
 SEP_LSA = '\n'
 
 
@@ -99,7 +100,9 @@ class Link(object):
     def parse(lsa_prop):
         for subcls in Link.__subclasses__():
             if subcls.TYPE == lsa_prop[LINK_TYPE]:
-                return subcls(lsa_prop[LINKID], lsa_prop[LINK_DATA], lsa_prop[METRIC])
+                return subcls(lsa_prop[LINKID],
+                              lsa_prop[LINK_DATA],
+                              lsa_prop[METRIC])
         log.error('Couldn''t parse the link %s', lsa_prop)
         return None
 
@@ -108,7 +111,8 @@ class Link(object):
         """
         Give the list of endpoint IPS/router-id for that link
         :param graph: A DiGraph of the network
-        :param lsdb: an LSDB instance in order to resolve e.g. routerid or interface IPs
+        :param lsdb: an LSDB instance in order to resolve
+                    e.g. routerid or interface IPs
         :return: list of IPs or router-id
         """
 
@@ -188,7 +192,10 @@ class LSAHeader(object):
             mask = prop_dict[MASK]
         except KeyError:
             mask = None
-        return LSAHeader(prop_dict[RID], prop_dict[LINKID], prop_dict[LSA_TYPE], mask)
+        return LSAHeader(prop_dict[RID],
+                         prop_dict[LINKID],
+                         prop_dict[LSA_TYPE],
+                         mask)
 
 
 class LSA(object):
@@ -205,13 +212,16 @@ class LSA(object):
         for subcls in LSA.__subclasses__():
             if subcls.TYPE == lsa_header.lsa_type:
                 return subcls.parse(lsa_header, lsa_prop)
-        log.error('Couldn''t parse the LSA type %S [%s]', lsa_header.lsa_type, lsa_prop)
+        log.error('Couldn''t parse the LSA type %S [%s]',
+                  lsa_header.lsa_type,
+                  lsa_prop)
         return None
 
     @abstractmethod
     def key(self):
         """
-        What is the unique key identifying this LSA among all other LSA of that type
+        What is the unique key identifying this LSA among
+        all other LSA of that type
         :return: key
         """
 
@@ -220,7 +230,8 @@ class LSA(object):
         """
         Apply this lsa on the graph, thus adding links/node as needed
         :param graph: The graph to manipulate
-        :param lsdb: The LSDB instance that can be used to retrieve information from other LSAs
+        :param lsdb: The LSDB instance that can be used
+                     to retrieve information from other LSAs
         """
 
     @staticmethod
@@ -244,20 +255,26 @@ class RouterLSA(LSA):
 
     @staticmethod
     def parse(lsa_header, lsa_prop):
-        return RouterLSA(lsa_header.routerid, [Link.parse(part) for part in lsa_prop])
+        return RouterLSA(lsa_header.routerid,
+                        [Link.parse(part) for part in lsa_prop])
 
     def apply(self, graph, lsdb):
         for link in self.links:
             for endpoint in link.endpoints(lsdb):
-                graph.add_edge(self.routerid, endpoint, metric=link.metric, src_address=link.address)
+                graph.add_edge(self.routerid,
+                               endpoint,
+                               metric=link.metric,
+                               src_address=link.address)
 
     def contract_graph(self, graph, private_ips):
-        ips = [link.address for link in self.links if not link.address == self.routerid]
+        ips = [link.address for link in self.links
+               if not link.address == self.routerid]
         ips.extend(private_ips)
         contract_graph(graph, ips, self.routerid)
 
     def __str__(self):
-        return '[R]<%s: %s>' % (self.routerid, ', '.join([str(link) for link in self.links]))
+        return '[R]<%s: %s>' % (self.routerid,
+                                ', '.join([str(link) for link in self.links]))
 
 
 class NetworkLSA(LSA):
@@ -277,7 +294,7 @@ class NetworkLSA(LSA):
                           attached_routers=[part[RID] for part in lsa_prop])
 
     def apply(self, graph, lsdb):
-        # This is unused as the RouterLSA should have done the resolution for us
+        # Unused as the RouterLSA should have done the resolution for us
         pass
 
     def __str__(self):
@@ -309,13 +326,18 @@ class ASExtLSA(LSA):
 
     @staticmethod
     def parse(lsa_header, lsa_prop):
-        return ASExtLSA(lsa_header.routerid, address=lsa_header.linkid, mask=lsa_header.mask,
-                        routes=[ASExtRoute(part[METRIC], part[FWD_ADDR]) for part in lsa_prop])
+        return ASExtLSA(lsa_header.routerid,
+                        address=lsa_header.linkid,
+                        mask=lsa_header.mask,
+                        routes=[ASExtRoute(part[METRIC], part[FWD_ADDR])
+                                for part in lsa_prop])
 
     def apply(self, graph, lsdb):
-        if ip_address(self.routerid) in lsdb.exclude_net and CFG.getboolean(DEFAULTSECT, 'exclude_fake_lsa'):
-            log.debug('Skipping AS-external Fake LSA %s via %s', self.address, [self.resolve_fwd_addr(r.fwd_addr)
-                                                                                for r in self.routes])
+        if ip_address(self.routerid) in lsdb.exclude_net and \
+           CFG.getboolean(DEFAULTSECT, 'exclude_fake_lsa'):
+            log.debug('Skipping AS-external Fake LSA %s via %s',
+                      self.address, [self.resolve_fwd_addr(r.fwd_addr)
+                                     for r in self.routes])
             return
         for route in self.routes:
             graph.add_edge(self.resolve_fwd_addr(route.fwd_addr), self.prefix,
@@ -326,9 +348,10 @@ class ASExtLSA(LSA):
 
     def __str__(self):
         return '[E]<%s: %s>' % \
-               (self.prefix, ', '.join(['(%s, %s)' %
-                                        (self.resolve_fwd_addr(route.fwd_addr), route.metric)
-                                        for route in self.routes]))
+               (self.prefix,
+                ', '.join(['(%s, %s)' % (self.resolve_fwd_addr(route.fwd_addr),
+                                         route.metric)
+                           for route in self.routes]))
 
     @staticmethod
     def push_update_on_remove():
@@ -337,7 +360,8 @@ class ASExtLSA(LSA):
 
 class LSDB(object):
     def __init__(self):
-        self.private_address_network = ip_network(CFG.get(DEFAULTSECT, 'private_net'))
+        self.private_address_network = ip_network(CFG.get(DEFAULTSECT,
+                                                  'private_net'))
         try:
             with open(CFG.get(DEFAULTSECT, 'private_ips'), 'r') as f:
                 self.private_address_binding = json.load(f)
@@ -364,7 +388,8 @@ class LSDB(object):
         self.listener = {}
         self.keep_running = True
         self.queue = Queue()
-        self.processing_thread = Thread(target=self.process_lsa, name="lsa_processing_thread")
+        self.processing_thread = Thread(target=self.process_lsa,
+                                        name="lsa_processing_thread")
         self.processing_thread.start()
 
     def get_leader(self):
@@ -456,8 +481,10 @@ class LSDB(object):
                         self.transaction = None
                         commit = True
                 else:
-                    lsa_parts = [self.extract_lsa_properties(part) for part in lsa_info.split(SEP_GROUP) if part]
-                    lsa = LSA.parse(LSAHeader.parse(lsa_parts.pop(0)), lsa_parts)
+                    lsa_parts = [self.extract_lsa_properties(part)
+                                 for part in lsa_info.split(SEP_GROUP) if part]
+                    lsa = LSA.parse(LSAHeader.parse(lsa_parts.pop(0)),
+                                    lsa_parts)
                     log.debug('Parsed %s: %s', action, lsa)
                     lsdb = self.lsdb(lsa)
                     if action == REM:
@@ -487,14 +514,17 @@ class LSDB(object):
 
     def __str__(self):
         strs = [str(lsa) for lsa in chain(self.routers.values(),
-                                          self.networks.values(), self.ext_networks.values())]
+                                          self.networks.values(),
+                                          self.ext_networks.values())]
         strs.insert(0, '* LSDB Content [%d]:' % len(strs))
         return '\n'.join(strs)
 
     def build_graph(self):
         new_graph = DiGraph()
         # Rebuild the graph from the LSDB
-        for lsa in chain(self.routers.values(), self.networks.values(), self.ext_networks.values()):
+        for lsa in chain(self.routers.values(),
+                         self.networks.values(),
+                         self.ext_networks.values()):
             lsa.apply(new_graph, self)
         # Contract all IPs to their respective router-id
         for lsa in self.routers.values():
