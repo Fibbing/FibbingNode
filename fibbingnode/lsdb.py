@@ -360,7 +360,7 @@ class LSDB(object):
         self.routers = {}  # router-id : lsa
         self.networks = {}  # DR IP : lsa
         self.ext_networks = {}  # (router-id, dest) : lsa
-        self.controllers = defaultdict(default_factory=[])  # controller nr : ip_list
+        self.controllers = defaultdict(list)  # controller nr : ip_list
         self.listener = {}
         self.keep_running = True
         self.queue = Queue()
