@@ -10,7 +10,7 @@ from fibbingnode import log, CFG
 from interface import ShapeshifterProxy
 from ipaddress import ip_interface, ip_address, ip_network
 from ConfigParser import DEFAULTSECT
-from sjmp import ProxyCloner
+from fibbingnode.misc.sjmp import ProxyCloner
 
 
 ADD = 'ADD'

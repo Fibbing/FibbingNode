@@ -8,7 +8,7 @@ from fibbingnode import log, CFG
 from link import Link, PhysicalLink
 from entities import Router, RootRouter, Bridge
 from ipaddress import ip_network, ip_interface, ip_address
-from sjmp import SJMPServer
+from fibbingnode.misc.sjmp import SJMPServer
 from interface import FakeNodeProxy
 
 

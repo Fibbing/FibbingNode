@@ -37,7 +37,8 @@ class SimpleJSONMessagePassing(object):
     def __init__(self, socket, target=None, name='Unnamed JSON agent'):
         """
         :param socket: A connected socket
-        :param target: The object on which the commands should be executed (or self if None)
+        :param target: The object on which the commands should be executed
+                        (or self if None)
         :param name: The name of the JSON agent
         """
         self.name = name
@@ -55,15 +56,17 @@ class SimpleJSONMessagePassing(object):
 
     def communicate(self, timeout=5.0):
         """
-        Listen (until stop() is called) for incoming messages and execute the corresponding actions
-        :param timeout: How long should we block at most before checking if we should stop listening
+        Listen (until stop() is called) for incoming messages and execute the
+        corresponding actions
+        :param timeout: How long should we block at most before checking if we
+                        should stop listening
         """
         self.stopped = False
         while not self.stopped:
             # Enforce read time out with select
             try:
                 r, _, _ = select.select([self.s], [], [], timeout)
-            except select.error as e:
+            except select.error:
                 break
             else:
                 if not r:
@@ -73,13 +76,15 @@ class SimpleJSONMessagePassing(object):
                 try:
                     line = next(sock_readline(self.s))
                 except StopIteration:
-                    log.debug('Socket is no longer readable, stopping communicate()')
+                    log.debug('Socket is no longer readable, '
+                              'stopping communicate()')
                     break
                 else:
                     try:
                         input = json.loads(line, encoding='utf-8')
                     except ValueError:
-                        log.debug('Malformed JSON message [%s] -- ignoring', line)
+                        log.debug('Malformed JSON message [%s] -- ignoring',
+                                  line)
                         # TODO - is it safe?
                         continue
                     else:
@@ -109,7 +114,8 @@ class SimpleJSONMessagePassing(object):
 
     def ask_info(self):
         """
-        Actively request the remote end to send us the descriptions of its exposed methods
+        Actively request the remote end to send us the descriptions
+        of its exposed methods
         """
         self._json_send(INFO, {})
 
@@ -119,7 +125,8 @@ class SimpleJSONMessagePassing(object):
         """
         try:
             method = getattr(self.target, cmd_arg[METHOD])
-            result = method(*cmd_arg.get(ARG_LIST, []), **cmd_arg.get(ARG_DICT, {}))
+            result = method(*cmd_arg.get(ARG_LIST, []),
+                            **cmd_arg.get(ARG_DICT, {}))
         except KeyError as e:
             self._send_exception(e, cmd_arg)
         except Exception as e:
@@ -135,7 +142,8 @@ class SimpleJSONMessagePassing(object):
         """
         Log remote exceptions
         """
-        log.error('%s generated a remote exception:\n\t%s', cmd_arg[CMD_ARG], cmd_arg[EXCEPTION])
+        log.error('%s generated a remote exception:\n\t%s',
+                  cmd_arg[CMD_ARG], cmd_arg[EXCEPTION])
 
     @staticmethod
     def _json_result(cmd_arg):
@@ -145,7 +153,9 @@ class SimpleJSONMessagePassing(object):
     def _json_display(cmd_arg):
         strs = []
         for name, other in cmd_arg.items():
-            strs.append('\n%s: %s' % (name, ' '.join(filter(lambda x: not x == 'self', other['args']))))
+            strs.append('\n%s: %s'
+                        % (name, ' '.join(filter(lambda x: not x == 'self',
+                                                 other['args']))))
             if other['doc']:
                 strs.append('%s' % other['doc'])
         log.info('%s', ''.join(strs))
@@ -153,7 +163,8 @@ class SimpleJSONMessagePassing(object):
     def _json_info(self, cmd_arg):
         self._json_send(DISPLAY, {
             name: {'doc': m.__doc__, 'args': inspect.getargspec(m)[0]}
-            for name, m in inspect.getmembers(self.target.__class__, predicate=inspect.ismethod)
+            for name, m in inspect.getmembers(self.target.__class__,
+                                              predicate=inspect.ismethod)
         })
 
     def _json_ping(self, cmd_arg):
@@ -174,14 +185,16 @@ class SimpleJSONMessagePassing(object):
             self.s.send(s)
             self.s.send('\n')
         except Exception as e:
-            log.debug('Failed to send JSON data -- is the socket still alive? (%s)', e)
+            log.debug('Failed to send JSON data -- is the socket still alive? '
+                      '(%s)', e)
 
 
 class SJMPServer():
     """
-    Sample Server that will accept one client per (infinite) call to communicate
+    Sample Server that will accept one client per call to communicate
     """
-    def __init__(self, hostname, port, invoke=None, target=None, max_clients=5):
+    def __init__(self, hostname, port,
+                 invoke=None, target=None, max_clients=5):
         """
         :param hostname: Hostname on which to listen, '' to accept any origin
         :param port: The TCP port to listen on
@@ -189,15 +202,17 @@ class SJMPServer():
         :param target: The object to expose, will fallback to self if None
         :param max_clients: The max number of concurrent connection
         """
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        self.server_socket.bind((hostname, port))
-        self.server_socket.listen(max_clients)
+        s = self.server_socket = socket.socket(socket.AF_INET,
+                                               socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+        s.bind((hostname, port))
+        s.listen(max_clients)
         self.invoke = invoke
         self.threads = []
         self.target = target
 
+    """This call never returns!"""
     def communicate(self, timeout=5.0, *args, **kwargs):
         while True:
             def accept():
@@ -253,14 +268,18 @@ class SJMPClient(SimpleJSONMessagePassing):
 
 class ProxyCloner(object):
     """
-    Class that will mimic an object methods but in fact send the calls over the networks
+    Class that will mimic an object methods but in fact
+    send the calls over the networks
     """
     def __init__(self, proxy_class, session):
         """
-        :param proxy_class: The class to mimic (e.g. one exposed in interface.py)
-        :param session: An object who has an execute method (ideally an SimpleJSONMessagePassing instance)
+        :param proxy_class: The class to mimic
+                            (e.g. one exposed in interface.py)
+        :param session: An object who has an execute method
+                        (ideally an SimpleJSONMessagePassing instance)
         """
-        for name, _ in inspect.getmembers(proxy_class, predicate=inspect.ismethod):
+        for name, _ in inspect.getmembers(proxy_class,
+                                          predicate=inspect.ismethod):
             setattr(self, name, _ProxyMethod(name, session))
         self.session = session
 
@@ -272,4 +291,3 @@ class _ProxyMethod(object):
 
     def __call__(self, *args, **kwargs):
         self.session.execute(self.name, *args, **kwargs)
-

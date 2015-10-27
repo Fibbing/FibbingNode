@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-from fibbingnode.interface import FakeNodeProxy, ShapeshifterProxy
-from fibbingnode.sjmp import SJMPClient, ProxyCloner
+from fibbingnode.southbound.interface import FakeNodeProxy, ShapeshifterProxy
+from fibbingnode.misc.sjmp import SJMPClient, ProxyCloner
 from fibbingnode import CFG
 from fibbingnode import log
 import logging
