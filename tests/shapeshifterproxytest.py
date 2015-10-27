@@ -3,9 +3,9 @@ from cmd import Cmd
 import logging
 from threading import Thread
 from fibbingnode import CFG, log
-from fibbingnode.sjmp import SJMPClient, ProxyCloner
+from fibbingnode.southbound.sjmp import SJMPClient, ProxyCloner
 from networkx import DiGraph
-from fibbingnode.interface import ShapeshifterProxy, FakeNodeProxy
+from fibbingnode.southbound.interface import ShapeshifterProxy, FakeNodeProxy
 
 
 class ShapeshifterProxyTest(ShapeshifterProxy):

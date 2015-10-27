@@ -2,7 +2,7 @@ from cmd import Cmd
 import logging
 from threading import Thread
 from fibbingnode import log
-from fibbingnode.sjmp import SJMPClient, SJMPServer, ProxyCloner
+from fibbingnode.southbound.sjmp import SJMPClient, SJMPServer, ProxyCloner
 
 H = 'localhost'
 P = 12345

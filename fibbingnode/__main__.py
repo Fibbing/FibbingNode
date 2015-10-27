@@ -1,4 +1,5 @@
-# Bootstrap to the main module
+import southbound.main as _m
+
+
 if __name__ == '__main__':
-    from main import main
-    main()
+    _m.main()

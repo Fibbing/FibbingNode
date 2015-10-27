@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import unittest
-import fibbingnode.shapeshifter.merger as merger
-import fibbingnode.shapeshifter.utils as ssu
+import fibbingnode.algorithms.merger as merger
+import fibbingnode.algorithms.utils as ssu
 import networkx as nx
 
 from fibbingnode import log

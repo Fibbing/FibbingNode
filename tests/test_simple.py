@@ -1,6 +1,6 @@
 import unittest
 import test_merger
-import fibbingnode.shapeshifter.ospf_simple as smpl
+import fibbingnode.algorithms.ospf_simple as smpl
 
 
 class TestSimple(test_merger.MergerTestCase):

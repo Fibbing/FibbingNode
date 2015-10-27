@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-from fibbingnode.southbound_interface import SouthboundManager
+from fibbingnode.algorithms.southbound_interface import SouthboundManager
 import networkx as nx
-from fibbingnode.shapeshifter.ospf_simple import OspfSimple
+from fibbingnode.algorithms.ospf_simple import OSPFSimple
 
 R1 = '1.1.1.1'
 R2 = '2.2.2.2'
@@ -16,7 +16,7 @@ requirements = {
 }
 
 manager = SouthboundManager(requirements,
-                            optimizer=OspfSimple())
+                            optimizer=OSPFSimple())
 try:
     manager.run()
 except KeyboardInterrupt:

@@ -6,7 +6,7 @@ import argparse
 import os
 import datetime
 from fibbing import FibbingManager
-from fibbingnode import log, CFG
+from fibbingnode import log, CFG, BIN
 from lsdb import draw_graph
 from misc import dump_threads
 
@@ -168,6 +168,7 @@ def handle_args():
     # Update default config
     if args.cfg:
         CFG.read(args.cfg)
+        BIN = CFG.get(DEFAULTSECT, 'quagga_path')
     # Check if we need to force debug mode
     if args.debug:
         CFG.set(DEFAULTSECT, 'debug', '1')
