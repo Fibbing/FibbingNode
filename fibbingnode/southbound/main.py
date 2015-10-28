@@ -8,7 +8,7 @@ import datetime
 from fibbing import FibbingManager
 from fibbingnode import log, CFG, BIN
 from lsdb import draw_graph
-from misc import dump_threads
+from fibbingnode.misc.utils import dump_threads
 
 
 class FibbingCLI(Cmd):
@@ -29,7 +29,8 @@ class FibbingCLI(Cmd):
         draw_graph(self.fibbing.root.lsdb.graph)
 
     def do_print_graph(self, line=''):
-        log.info('Current network graph: %s', self.fibbing.root.lsdb.graph.edges(data=True))
+        log.info('Current network graph: %s',
+                 self.fibbing.root.lsdb.graph.edges(data=True))
 
     def do_print_net(self, line=''):
         """Print information about the fibbing network"""

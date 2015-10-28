@@ -3,7 +3,7 @@ import inspect
 import os
 from time import sleep
 from fibbingnode import log
-from misc import need_root
+from fibbingnode.misc.utils import need_root
 
 NSDIR = '/var/run/netns'
 

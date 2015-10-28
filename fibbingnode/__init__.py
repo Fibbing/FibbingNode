@@ -7,6 +7,10 @@ import ConfigParser
 RES = os.path.join(os.path.dirname(__file__), 'res')
 TEMPLATES = os.path.join(RES, 'templates')
 
+
+def get_template_path(name):
+    return os.path.realpath(os.path.join(TEMPLATES, name))
+
 CFG = ConfigParser.ConfigParser()
 with open(os.path.join(RES, 'default.cfg'), 'r') as f:
     CFG.readfp(f)

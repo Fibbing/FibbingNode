@@ -1,22 +1,22 @@
-from ConfigParser import DEFAULTSECT
 from collections import OrderedDict
 import subprocess
 import sys
 import os
 from contextlib import closing
 from threading import Lock, Timer
-from time import sleep
-from ipaddress import ip_network
 from mako import exceptions
 from mako.template import Template
 
-from fibbingnode import log, TEMPLATES, BIN, CFG
+import fibbingnode
 from lsdb import LSDB
-from misc import require_cmd, force
+from fibbingnode.misc.utils import require_cmd, force
 from namespaces import NetworkNamespace, RootNamespace
 
-OSPF_CFG_TEMPLATE = os.path.realpath(os.path.join(TEMPLATES, 'ospf.mako'))
-ZEBRA_CFG_TEMPLATE = os.path.realpath(os.path.join(TEMPLATES, 'zebra.mako'))
+log = fibbingnode.log
+BIN = fibbingnode.BIN
+
+OSPF_CFG_TEMPLATE = fibbingnode.get_template_path('ospf.mako')
+ZEBRA_CFG_TEMPLATE = fibbingnode.get_template_path('zebra.mako')
 
 ZEBRA_EXEC = os.path.join(BIN, 'sbin/zebra')
 OSPFD_EXEC = os.path.join(BIN, 'sbin/ospfd')
@@ -99,9 +99,14 @@ class Node(object):
 
     def pipe(self, *args, **kwargs):
         """
-        Execute a command on this node and return an object that has communicate() available for use with stdin/stdout
+        Execute a command on this node and return an object that
+        has communicate() available for use with stdin/stdout
         """
-        return subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kwargs)
+        return subprocess.Popen(args,
+                                stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT,
+                                **kwargs)
 
     def start(self):
         self.call('ip', 'link', 'set', 'lo', 'up')
@@ -147,7 +152,8 @@ class VTYSH(object):
     def __call__(self, *args, **kwargs):
         """
         Execute a vtysh command on the corresponding daemon
-        :param configure: Execute the command in a 'configure terminal' 'exit' block
+        :param configure: Execute the command in a
+                            'configure terminal' 'exit' block
         :param *args: list of command elements
         """
         configure = kwargs.pop('configure', False)
@@ -176,11 +182,13 @@ class VTYSH(object):
         self.session.stdin.write(cmd + '\n')
 
     def _restart_timer(self):
-        self.reset_timer = Timer(interval=self.VTYSH_TIMEOUT, function=self._expire)
+        self.reset_timer = Timer(interval=self.VTYSH_TIMEOUT,
+                                 function=self._expire)
         self.reset_timer.start()
 
     def _read_until(self, delimiter):
-        """Read and return the ouput of the shell until reach the given delimiter (not included)"""
+        """Read and return the ouput of the shell until reaching
+        the given delimiter (not included)"""
         # TODO optimize ...
         l = len(delimiter)
         b = self.session.stdout.read(l)
@@ -264,7 +272,9 @@ class Router(Node):
         """
         :return: nsname: port | port | port
         """
-        return '%s: %s' % (self.ns.name, ' | '.join([str(port) for port in self.interfaces.values()]))
+        return '%s: %s' % (self.ns.name,
+                           ' | '.join([str(port)
+                                      for port in self.interfaces.values()]))
 
     def start(self, *extra_args):
         """
@@ -309,8 +319,9 @@ class Router(Node):
                 f.write(text)
         except:
             # Display template errors in a less cryptic way
-            print 'Couldn''t render a config file (%s)' % os.path.basename(template)
-            print exceptions.text_error_template().render()
+            log.error('Couldn''t render a config file (%s)',
+                      os.path.basename(template))
+            log.error(exceptions.text_error_template().render())
 
     def _fibbing(self, *args, **kwargs):
         cmd = ['ip', 'ospf', 'fibbing']
@@ -353,13 +364,19 @@ class RootRouter(Router):
 
     def __str__(self):
         top = ' | '.join([str(port) for port in self.physical_links])
-        return '%s\n%s\n%s%s\n%s' % (top, '-' * len(top),
-                                     ' ' * ((len(top) - len(self.id)) / 2), self.id,
-                                     ' | '.join([str(port) for port in self.interfaces.values() if
-                                                 port not in self.physical_links]))
+        return '%s\n%s\n%s%s\n%s' %\
+               (top,
+                '-' * len(top),
+                ' ' * ((len(top) - len(self.id)) / 2),
+                self.id,
+                ' | '.join([str(port)
+                            for port in self.interfaces.values()
+                            if port not in self.physical_links]))
 
     def start(self, *extra_args):
-        super(RootRouter, self).start('--log_lsdb', self.lsdb_log_file_name, *extra_args)
+        super(RootRouter, self).start('--log_lsdb',
+                                      self.lsdb_log_file_name,
+                                      *extra_args)
 
     def delete(self):
         self.lsdb.stop()
@@ -383,7 +400,8 @@ class RootRouter(Router):
             try:
                 self.lsdb.commit_change(line[:-1])
             except Exception as e:
-                # We do not want to crash the whole node ... rather log the error
+                # We do not want to crash the whole node ...
+                # rather log the error
                 # And stop parsing the LSDB
                 log.error('Failed to parse LSDB update %s [%s]', line, str(e))
                 log.exception(e)
@@ -404,7 +422,8 @@ class Bridge(Node):
     """
 
     def __init__(self, id='br0', *args, **kwargs):
-        require_cmd('brctl', 'Look for package bridge-utils in your package manager')
+        require_cmd('brctl',
+                    'Look for package bridge-utils in your package manager')
         super(Bridge, self).__init__(id, *args, **kwargs)
         # Check that this bridge id is available
         if self.id in subprocess.check_output(['brctl', 'show']):
@@ -470,7 +489,8 @@ class _ConfigDict(dict):
 class _ConfigNode(_ConfigDict):
     """
     A router configuration node,
-    Generates/extracts/formats the information needed by zebra/ospf from the router object
+    Generates/extracts/formats the information needed by zebra/ospf from
+    the router object
     """
 
     def __init__(self, router):
@@ -498,10 +518,12 @@ class _ConfigNode(_ConfigDict):
                 hello_int=intf.ospf_hello_int
             )
             interfaces.append(intf_dict)
-            net_dict = _ConfigDict(domain=intf.ip_interface.network.with_prefixlen,
+            net_dict = _ConfigDict(domain=intf.ip_interface
+                                   .network.with_prefixlen,
                                    area=intf.ospf_area)
             networks.append(net_dict)
         return _ConfigDict(interfaces=interfaces,
                            # Generate id from from first interface
-                           router_id=str(router.interfaces.values()[0].ip_interface.ip),
+                           router_id=str(router.interfaces.values()[0]
+                                         .ip_interface.ip),
                            networks=networks)
