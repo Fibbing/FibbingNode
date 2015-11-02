@@ -7,7 +7,7 @@ fi
 CWD=`dirname $0`
 SCRIPT=$(readlink -f $0)
 DIR=`dirname $SCRIPT`
-BIN=(awk -F "=" '/quagga_path=/ { print $NF }' $DIR/fibbingnode/res/default.cfg)
+BIN=`(awk -F "=" '/quagga_path=/ { print $NF }' $DIR/fibbingnode/res/default.cfg)`
 
 quagga() {
     if ! getent group quagga ; then
