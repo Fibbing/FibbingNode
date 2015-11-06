@@ -27,7 +27,10 @@ quagga() {
     QUAGGA=${DIR}/Quagga
 
     cd ${QUAGGA}
-    ./bootstrap.sh
+    # For some reasons (e.g. on Debian) autoreconf fails to copy ltmain.sh after the first run ...
+    autoreconf -vfi
+    # But succeeds after the second one.
+    autoreconf -vfi
     ./configure --prefix=${BIN}
     make -j 4
     make install
