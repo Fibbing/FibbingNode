@@ -72,8 +72,7 @@ try:
     from networkx import spring_layout, draw_networkx_edge_labels, draw
     import matplotlib.pyplot as plt
 except ImportError as e:
-    log.error('Missing packages to draw the network')
-    log.exception(e)
+    log.warning('Missing packages to draw the network, disabling the fonction')
     draw_graph = lambda x: True
 
 
@@ -374,8 +373,8 @@ class LSDB(object):
                             iplist = self.router_private_address[rid] = []
                         iplist.append(ip)
         except Exception as e:
-            log.error('Incorrect private IP addresses binding file')
-            log.error(str(e))
+            log.warning('Incorrect private IP addresses binding file')
+            log.warning(str(e))
             self.private_address_binding = {}
             self.router_private_address = {}
         self.last_line = ''
@@ -390,6 +389,7 @@ class LSDB(object):
         self.queue = Queue()
         self.processing_thread = Thread(target=self.process_lsa,
                                         name="lsa_processing_thread")
+        self.processing_thread.setDaemon(True)
         self.processing_thread.start()
 
     def get_leader(self):

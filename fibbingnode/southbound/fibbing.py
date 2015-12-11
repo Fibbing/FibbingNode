@@ -56,11 +56,13 @@ class FibbingManager(object):
         controller_net = ip_address(controller_base)
         self.net = ip_network('%s/%s' % (controller_net, controller_prefix))
         self.graph_thread = Thread(target=self.infer_graph, name="Graph inference thread")
+        self.graph_thread.setDaemon(True)
         self.json_proxy = SJMPServer(hostname=CFG.get(DEFAULTSECT, 'json_hostname'),
                                      port=CFG.getint(DEFAULTSECT, 'json_port'),
                                      invoke=self.proxy_connected,
                                      target=FakeNodeProxyImplem(self))
         self.json_thread = Thread(target=self.json_proxy.communicate)
+        self.json_thread.setDaemon(True)
         # Used to assign unique router-id to each node
         self.next_id = 1
         self.links = []
@@ -85,6 +87,8 @@ class FibbingManager(object):
             self.root.add_physical_link(link)
         self.root.start()
         # Create additional nodes if requested
+        if nodecount is None:
+            nodecount = CFG.getint(DEFAULTSECT, 'initial_node_count')
         while nodecount > 0:
             self.add_node()
             nodecount -= 1

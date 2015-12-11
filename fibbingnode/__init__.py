@@ -1,7 +1,9 @@
 import logging
 import os
 import ConfigParser
+import threading
 
+EXIT = threading.Event()
 
 # Path to the templates directory
 RES = os.path.join(os.path.dirname(__file__), 'res')
@@ -42,6 +44,9 @@ log.addHandler(handler)
 
 
 def log_to_file(filename, mode='a'):
+    import datetime
     handler = logging.FileHandler(filename, mode)
     handler.setFormatter(fmt)
     log.addHandler(handler)
+    now = datetime.datetime.now()
+    log.info('==== Session start: %s', now.isoformat())
