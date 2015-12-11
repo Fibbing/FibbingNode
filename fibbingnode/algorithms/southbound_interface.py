@@ -2,6 +2,7 @@
 # encoding: utf-8
 
 from fibbingnode.southbound.interface import FakeNodeProxy, ShapeshifterProxy
+from fibbingnode.algorithms.ospf_simple import OSPFSimple
 from fibbingnode.misc.sjmp import SJMPClient, ProxyCloner
 from fibbingnode import CFG
 from fibbingnode import log
@@ -14,12 +15,12 @@ log.setLevel(logging.DEBUG)
 
 
 class SouthboundManager(ShapeshifterProxy):
-    def __init__(self, fwd_dags, optimizer, additional_routes=None):
+    def __init__(self, fwd_dags=None, optimizer=None, additional_routes=None):
         self.igp_graph = nx.DiGraph()
         self.dirty = False
         self.additional_routes = additional_routes
-        self.optimizer = optimizer
-        self.fwd_dags = fwd_dags
+        self.optimizer = optimizer if optimizer else OSPFSimple()
+        self.fwd_dags = fwd_dags if fwd_dags else {}
         self.current_lsas = set([])
         self.json_proxy = SJMPClient(hostname=CFG.get(DEFAULTSECT,
                                                       'json_hostname'),
@@ -99,3 +100,12 @@ class SouthboundManager(ShapeshifterProxy):
             pass
         else:
             self.dirty = True
+
+    def path_requirement(self, prefix, path):
+        """Add a path requirement for the given prefix.
+
+        :param path: The ordered list of routerid composing the path.
+                     E.g. for path = [A, B, C], the following edges will be
+                     used as requirements: [](A, B), (B, C), (C, D)]"""
+        self.fwd_dags[prefix] = nx.DiGraph([(s, d) for s, d in zip(path[:-1],
+                                                                   path[1:])])
