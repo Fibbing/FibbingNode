@@ -16,7 +16,8 @@ def gen_physical_ports(port_list):
     """
     Find all enabled physical interfaces of this
     :param port_list: The list of all physical ports that should be analyzed
-    :return: A list of Tuple (interface name, ip address) for each active physical interface
+    :return: A list of Tuple (interface name, ip address)
+            for each active physical interface
     """
     ports = []
     for port_name in port_list:
@@ -25,9 +26,11 @@ def gen_physical_ports(port_list):
             for line in out.splitlines():
                 if 'inet ' in line:
                     line = line.strip(' \t\n')
-                    # inet 130.104.228.87/25 brd 130.104.228.127 scope global dynamic eno1
+                    # inet 130.104.228.87/25 brd 130.104.228.127 \
+                    #                                 scope global dynamic eno1
                     port_addr = ip_interface(line.split(' ')[1])
-                    log.debug('Added physical port %s@%s', port_name, port_addr)
+                    log.debug('Added physical port %s@%s',
+                              port_name, port_addr)
                     ports.append((port_name, port_addr))
                     break
                     # TODO support multiple IP/interface?
@@ -55,10 +58,13 @@ class FibbingManager(object):
                            (instance_number << host_prefix))
         controller_net = ip_address(controller_base)
         self.net = ip_network('%s/%s' % (controller_net, controller_prefix))
-        self.graph_thread = Thread(target=self.infer_graph, name="Graph inference thread")
+        self.graph_thread = Thread(target=self.infer_graph,
+                                   name="Graph inference thread")
         self.graph_thread.setDaemon(True)
-        self.json_proxy = SJMPServer(hostname=CFG.get(DEFAULTSECT, 'json_hostname'),
-                                     port=CFG.getint(DEFAULTSECT, 'json_port'),
+        self.json_proxy = SJMPServer(hostname=CFG.get(DEFAULTSECT,
+                                                      'json_hostname'),
+                                     port=CFG.getint(DEFAULTSECT,
+                                                     'json_port'),
                                      invoke=self.proxy_connected,
                                      target=FakeNodeProxyImplem(self))
         self.json_thread = Thread(target=self.json_proxy.communicate)
@@ -106,7 +112,8 @@ class FibbingManager(object):
         # Link it to the bridge
         l = self.link(self.bridge, n)
         # Generate unique ip for its interface that's connected to the bridge
-        router_ip = ip_interface('%s/%s' % (self.net[self.next_id], self.net.prefixlen))
+        router_ip = ip_interface('%s/%s' % (self.net[self.next_id],
+                                            self.net.prefixlen))
         self.next_id += 1
         l.dst.set_ip(router_ip)
         if start:
@@ -255,7 +262,8 @@ class FibbingManager(object):
         self.root.parse_lsdblog()
 
     def _get_proxy_routes(self, points):
-        for prefix, parts in groupby(sorted(points, key=itemgetter(3)), key=itemgetter(3)):
+        for prefix, parts in groupby(sorted(points, key=itemgetter(3)),
+                                     key=itemgetter(3)):
             route = []
             for p in parts:
                 src, dst, cost = p[0], p[1], p[2]
@@ -264,6 +272,10 @@ class FibbingManager(object):
                 else:
                     src = None
                 fwd_addr = self.root.get_fwd_address(src, dst)
+                # Can have multiple private addresses per interface, handle
+                # here the selection ...
+                if isinstance(fwd_addr, list):
+                    fwd_addr = fwd_addr[0]
                 route.append((fwd_addr, str(cost)))
             yield prefix, route
 
@@ -271,7 +283,6 @@ class FibbingManager(object):
         """
         :param points: (source, fwd, cost, prefix)*
         """
-        self.leader = self.instance == self.lsdb.get_leader()
         log.info('Shapeshifter added attraction points: %s', points)
         for prefix, route in self._get_proxy_routes(points):
             self.install_route(prefix, route, self.leader)
@@ -280,7 +291,6 @@ class FibbingManager(object):
         """
         :param points: (source, fwd, cost, prefix)*
         """
-        self.leader = self.instance == self.lsdb.get_leader()
         log.info('Shapeshifter removed attraction points: %s', points)
         for prefix, route in self._get_proxy_routes(points):
             # We don't need the cost
@@ -311,14 +321,16 @@ class FakeNodeProxyImplem(FakeNodeProxy):
             if len(points) == tuple_len:
                 return [points]
             else:
-                raise Exception('Incomplete parameters, tuples should have length of %s' % tuple_len)
+                raise Exception('Incomplete parameters, tuples should '
+                                'have length of %s' % tuple_len)
         if len(points[0]) == tuple_len:
             return points
-        raise Exception('Incomplete parameters, tuples should have length of %s' % tuple_len)
+        raise Exception('Incomplete parameters, tuples should have '
+                        'length of %s' % tuple_len)
 
 
 class FibbingRoute(object):
-    def __init__(self, prefix, attraction_points, advertize):
+    def __init__(self, prefix, attraction_points, advertize=False):
         """
         :param prefix: The network prefix to fake
         :param attraction_points: a list of AttractionPoint
@@ -329,7 +341,9 @@ class FibbingRoute(object):
         self.append(attraction_points, advertize)
 
     def __str__(self):
-        return '%s: %s' % (self.prefix.with_prefixlen, ' and '.join([str(p) for p in self.attraction_points]))
+        return '%s: %s' % (self.prefix.with_prefixlen,
+                           ' and '.join([str(p)
+                                         for p in self.attraction_points]))
 
     def __len__(self):
         return len(self.attraction_points)
@@ -350,7 +364,8 @@ class FibbingRoute(object):
                 point.retract(self.prefix)
             return point.node
         except KeyError:
-            log.debug('Unkown attraction point %s for prefix %s', address, self.prefix)
+            log.debug('Unkown attraction point %s for prefix %s',
+                      address, self.prefix)
             return None
 
 
@@ -361,12 +376,16 @@ class AttractionPoint(object):
 
     def __init__(self, address, metric, node):
         """
-        :param address: The forwarding address to specify for this attraction point
+        :param address: The forwarding address to specify
+                        for this attraction point
         :param metric: The metric of this attraction point
         :param node: The node advertizing this
         :return:
         """
-        self.address = address
+        try:
+            self.address = str(ip_interface(address).ip)
+        except ValueError:
+            self.address = address
         self.metric = metric
         self.node = node
         self.advertized = False
@@ -378,8 +397,10 @@ class AttractionPoint(object):
         """
         Advertize this fibbing point
         """
-        log.debug('%s advertizes %s via %s', self.node.id, prefix, self.address)
-        self.node.advertize(prefix.with_prefixlen, via=self.address, metric=self.metric)
+        log.debug('%s advertizes %s via %s',
+                  self.node.id, prefix, self.address)
+        self.node.advertize(prefix.with_prefixlen,
+                            via=self.address, metric=self.metric)
         self.advertized = True
 
     def retract(self, prefix):

@@ -255,7 +255,7 @@ class RouterLSA(LSA):
     @staticmethod
     def parse(lsa_header, lsa_prop):
         return RouterLSA(lsa_header.routerid,
-                        [Link.parse(part) for part in lsa_prop])
+                         [Link.parse(part) for part in lsa_prop])
 
     def apply(self, graph, lsdb):
         for link in self.links:
@@ -332,12 +332,13 @@ class ASExtLSA(LSA):
                                 for part in lsa_prop])
 
     def apply(self, graph, lsdb):
-        if ip_address(self.routerid) in lsdb.exclude_net and \
-           CFG.getboolean(DEFAULTSECT, 'exclude_fake_lsa'):
-            log.debug('Skipping AS-external Fake LSA %s via %s',
-                      self.address, [self.resolve_fwd_addr(r.fwd_addr)
-                                     for r in self.routes])
-            return
+        # TODO figure out if we actually need to filter these out or not
+        # if ip_address(self.routerid) in lsdb.exclude_net and \
+        #    CFG.getboolean(DEFAULTSECT, 'exclude_fake_lsa'):
+        #     log.debug('Skipping AS-external Fake LSA %s via %s',
+        #               self.address, [self.resolve_fwd_addr(r.fwd_addr)
+        #                              for r in self.routes])
+        #     return
         for route in self.routes:
             graph.add_edge(self.resolve_fwd_addr(route.fwd_addr), self.prefix,
                            metric=route.metric)
@@ -371,7 +372,7 @@ class LSDB(object):
                             iplist = self.router_private_address[rid]
                         except KeyError:
                             iplist = self.router_private_address[rid] = []
-                        iplist.append(ip)
+                        iplist.extend(ip)
         except Exception as e:
             log.warning('Incorrect private IP addresses binding file')
             log.warning(str(e))
@@ -486,7 +487,6 @@ class LSDB(object):
                     lsa = LSA.parse(LSAHeader.parse(lsa_parts.pop(0)),
                                     lsa_parts)
                     log.debug('Parsed %s: %s', action, lsa)
-                    lsdb = self.lsdb(lsa)
                     if action == REM:
                         if not self.transaction:
                             self.remove_lsa(lsa)
@@ -535,7 +535,10 @@ class LSDB(object):
         controller_prefix = CFG.getint(DEFAULTSECT, 'controller_prefixlen')
         # Group by controller and log them
         for ip in new_graph.nodes_iter():
-            addr = ip_address(ip)
+            try:
+                addr = ip_address(ip)
+            except ValueError:
+                continue  # Have a prefix
             if addr in base_net:
                 """1. Compute address diff to remove base_net
                    2. Right shift to remove host bits

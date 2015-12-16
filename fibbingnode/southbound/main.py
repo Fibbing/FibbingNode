@@ -80,7 +80,7 @@ class FibbingCLI(Cmd):
                 i += 2
             log.critical('Add route request at %s',
                          datetime.datetime.now().strftime('%H.%M.%S.%f'))
-            self.fibbing.install_route(items[0], points)
+            self.fibbing.install_route(items[0], points, True)
 
     def do_rm_route(self, line):
         """Remove a route or parts of a route"""
