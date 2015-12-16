@@ -1,6 +1,7 @@
 from ConfigParser import DEFAULTSECT
 from cmd import Cmd
 import logging
+import sys
 import subprocess
 import argparse
 import os
@@ -191,9 +192,9 @@ def handle_args():
         log.setLevel(logging.INFO)
     # Check for any specified physical port to use both in config file
     # or in args
-    ports = [p for p in CFG.sections()
-             if not (p == 'fake' or p == 'physical' or p == DEFAULTSECT)]
-    ports.extend(args.ports)
+    ports = set(p for p in CFG.sections()
+                if not (p == 'fake' or p == 'physical' or p == DEFAULTSECT))
+    ports.union(args.ports)
     if not ports:
         log.warning('The fibbing node will not be connected '
                     'to any physical ports!')
@@ -202,17 +203,20 @@ def handle_args():
     return ports, instance_count, not args.nocli
 
 
-def sig_handler(*args, **kwargs):
-    fibbingnode.EXIT.set()
-
-
 def main():
-    signal.signal(signal.SIGINT, sig_handler)
-    signal.signal(signal.SIGTERM, sig_handler)
     phys_ports, name, cli = handle_args()
     if not cli:
         fibbingnode.log_to_file('%s.log' % name)
     mngr = FibbingManager(name)
+
+    def sig_handler(sig, frame):
+        mngr.cleanup()
+        fibbingnode.EXIT.set()
+        sys.exit()
+
+    signal.signal(signal.SIGINT, sig_handler)
+    signal.signal(signal.SIGTERM, sig_handler)
+
     try:
         mngr.start(phys_ports=phys_ports)
         if cli:
