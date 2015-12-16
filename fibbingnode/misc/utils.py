@@ -1,5 +1,6 @@
 import os
 import sys
+
 from time import sleep
 from fibbingnode import log
 
@@ -60,7 +61,7 @@ def force(f, *args, **kwargs):
     try:
         return f(*args, **kwargs)
     except Exception as e:
-        log.exception(e)
+        log.debug(e, exc_info=1)
         return None
 
 
@@ -127,3 +128,4 @@ class ConfigDict(dict):
     def __setattr__(self, key, value):
         # so that self.key = value <==> self[key] = key
         self[key] = value
+
