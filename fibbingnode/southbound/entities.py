@@ -125,7 +125,7 @@ class Bridge(Node):
         """
         Disable and delete this bridge
         """
-        subprocess.call(['ip', 'link', 'set', self.id, 'down'])
+        self.call('ip', 'link', 'set', self.id, 'down')
         self.brctl('delbr')
 
 
@@ -165,6 +165,7 @@ class Router(Node):
         super(Router, self).__init__(id, *args, **kwargs)
         # Basic routers have lowest priority
         self.ospf_priority = ospf_priority
+        self.name = self.id
         self.ns = NetworkNamespace() if namespaced else RootNamespace()
         self.router = FibbingRouter(self)
 
@@ -213,6 +214,7 @@ class Router(Node):
         self._fibbing(prefix, no=True)
 
     def vtysh(self, *args, **kwargs):
+        log.debug('vtysh call: %s', ' '.join(args))
         return self.router.vtysh(*args, **kwargs)
 
 

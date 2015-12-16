@@ -1,6 +1,10 @@
 hostname ${node.hostname}
 password ${node.password}
 
+% for pl in node.zebra.prefixlists:
+ip prefix-list ${pl.name} ${pl.action} ${pl.prefix} ge ${pl.ge}
+% endfor
+!
 % for rm in node.zebra.routemaps:
 route-map ${rm.name} ${rm.action} ${rm.prio}
 % for prefix in rm.prefix:

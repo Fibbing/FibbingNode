@@ -1,5 +1,6 @@
 import os
 import subprocess
+import time
 from contextlib import closing
 from threading import Lock, Timer
 from mako import exceptions
@@ -89,6 +90,7 @@ class QuaggaRouter(object):
         # Start zebra/ospf
         self.call(ZEBRA_EXEC, '-f', self.zebra_cfg, '-i', self.zebra_pid,
                   '-z', self.zebra_api, '-d', '-k')
+        time.sleep(.5)  # Required to let zebra create its API socket ...
         self.call(OSPFD_EXEC, '-f', self.ospf_cfg, '-i', self.ospfd_pid,
                   '-z', self.zebra_api, '-d', *extra_args)
 
@@ -102,7 +104,7 @@ class QuaggaRouter(object):
         self.render(OSPF_CFG_TEMPLATE, self.ospf_cfg, node=confignode)
 
     def call(self, *args, **kwargs):
-        return subprocess.call(*args, **kwargs)
+        return subprocess.call(args, **kwargs)
 
     def pipe(self, *args, **kwargs):
         return subprocess.Popen(args,
@@ -228,7 +230,7 @@ class VTYSH(object):
 class RouterConfigDict(ConfigDict):
     def __init__(self, router, *args, **kwargs):
         super(RouterConfigDict, self).__init__(*args, **kwargs)
-        self.hostname = router.id
+        self.hostname = router.name
         self.password = OSPFD_PASSWORD
         self.redistribute = ConfigDict()
         self.ospf = self.build_ospf(router)
@@ -252,4 +254,6 @@ class RouterConfigDict(ConfigDict):
             cfg.routemaps = []
         if not cfg.static_routes:
             cfg.static_routes = []
+        if not cfg.prefixlists:
+            cfg.prefixlists = []
         return cfg

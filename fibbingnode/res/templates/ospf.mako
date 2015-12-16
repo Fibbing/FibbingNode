@@ -18,10 +18,10 @@ router ospf
   redistribute fibbing metric-type 1
   % endif
   % if node.ospf.redistribute.connected:
-  redistribute connected metric-type 1
+  redistribute connected metric-type 1 metric ${node.ospf.redistribute.connected}
   % endif
   % if node.ospf.redistribute.static:
-  redistribute static metric-type 1
+  redistribute static metric-type 1 metric ${node.ospf.redistribute.static}
   % endif
   % for net in node.ospf.networks:
   network ${net.domain} area ${net.area}
