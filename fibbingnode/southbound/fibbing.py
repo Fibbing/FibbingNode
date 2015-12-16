@@ -83,6 +83,7 @@ class FibbingManager(object):
         """
         # Create root node
         self.root = self.add_node(id='root', cls=RootRouter, start=False)
+        self.root.lsdb.set_leader_watchdog(self)
         del self.nodes[self.root.id]  # The root node should not originate LSA
         self.graph_thread.start()
         self.json_thread.start()
@@ -303,6 +304,18 @@ class FibbingManager(object):
     def lsdb(self):
         return self.root.lsdb
 
+    def check_leader(self, instance):
+        was_leader = self.leader
+        self.leader = self.instance == self.lsdb.get_leader()
+        if self.leader and not was_leader:  # We are the new leader
+            log.info('Elected as leader')
+            for route in self.routes.values():
+                route.advertize()
+        elif was_leader and not self.leader:
+            log.info('No longer leader')
+            # Let the LSA decay
+            # TODO is-it safe ?
+
 
 class FakeNodeProxyImplem(FakeNodeProxy):
     def __init__(self, mngr):
@@ -367,6 +380,10 @@ class FibbingRoute(object):
             log.debug('Unkown attraction point %s for prefix %s',
                       address, self.prefix)
             return None
+
+    def advertize(self):
+        for p in self.attraction_points.itervalues():
+            p.advertize(self.prefix)
 
 
 class AttractionPoint(object):

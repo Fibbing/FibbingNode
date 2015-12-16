@@ -379,6 +379,7 @@ class LSDB(object):
             self.private_address_binding = {}
             self.router_private_address = {}
         self.last_line = ''
+        self.leader_watchdog = None
         self.transaction = None
         self.graph = DiGraph()
         self.routers = {}  # router-id : lsa
@@ -393,8 +394,11 @@ class LSDB(object):
         self.processing_thread.setDaemon(True)
         self.processing_thread.start()
 
+    def set_leader_watchdog(self, wd):
+        self.leader_watchdog = wd
+
     def get_leader(self):
-        return min(self.controllers.iterkeys())
+        return min(self.controllers.iterkeys()) if self.controllers else None
 
     def stop(self):
         for l in self.listener.values():
@@ -557,6 +561,7 @@ class LSDB(object):
         return new_graph
 
     def update_graph(self, new_graph):
+        self.leader_watchdog.check_leader(self.get_leader())
         added_edges = graph_diff(new_graph, self.graph)
         removed_edges = graph_diff(self.graph, new_graph)
         # Propagate differences
