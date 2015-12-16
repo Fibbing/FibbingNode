@@ -39,8 +39,11 @@ class SouthboundManager(ShapeshifterProxy):
     # Helper functions
     def _refresh_augmented_topo(self):
         log.info('Solving topologies')
-        self.optimizer.solve(self.igp_graph,
-                             self.fwd_dags)
+        try:
+            self.optimizer.solve(self.igp_graph,
+                                 self.fwd_dags)
+        except Exception as e:
+            log.exception(e)
 
     def _get_diff_lsas(self):
         self._refresh_augmented_topo()
@@ -64,7 +67,8 @@ class SouthboundManager(ShapeshifterProxy):
         self.igp_graph.clear()
         for u, v, metric in graph:
             self.igp_graph.add_edge(u, v, weight=int(metric))
-        log.debug('Bootstrapped graph with edges: %s', self.igp_graph.edges())
+        log.debug('Bootstrapped graph with edges: %s',
+                  self.igp_graph.edges(data=True))
         log.debug('Sending initial lsa''s')
         if self.additional_routes:
             self.quagga_manager.add_static(self.additional_routes)
