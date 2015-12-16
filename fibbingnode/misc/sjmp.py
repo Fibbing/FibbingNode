@@ -1,9 +1,14 @@
+import traceback
+import cStringIO as StringIO
+import sys
+import os
 import json
 import socket
 import select
 import inspect
 import logging
 from threading import Thread
+from urlparse import urlparse
 
 log = logging.getLogger(__name__)
 
@@ -75,7 +80,7 @@ class SimpleJSONMessagePassing(object):
                     continue
                 try:
                     line = next(sock_readline(self.s))
-                except StopIteration:
+                except:
                     log.debug('Socket is no longer readable, '
                               'stopping communicate()')
                     break
@@ -171,10 +176,13 @@ class SimpleJSONMessagePassing(object):
         self._json_send(PONG, {})
 
     def _send_exception(self, e, args):
+        s = StringIO.StringIO()
+        traceback.print_tb(sys.exc_info()[2], file=s)
         self._json_send(EXCEPTION, {
             CMD_ARG: args,
-            EXCEPTION: str(e)
+            EXCEPTION: '%s\n%s' % (str(e), s.getvalue())
         })
+        s.close()
 
     def _json_send(self, cmd_name, cmd_dict):
         s = json.dumps({
@@ -187,6 +195,21 @@ class SimpleJSONMessagePassing(object):
         except Exception as e:
             log.debug('Failed to send JSON data -- is the socket still alive? '
                       '(%s)', e)
+
+
+def _get_socket(hostname, port, unlink=False):
+    url = urlparse(hostname)
+    if url.scheme != 'unix':
+        af = socket.AF_INET
+        args = (hostname, port)
+    else:
+        af = socket.AF_UNIX
+        args = url.path
+        log.info('Listening on unix socket: %s', args)
+        if unlink and os.path.exists(args):
+            os.unlink(args)
+    s = socket.socket(af, socket.SOCK_STREAM)
+    return s, args
 
 
 class SJMPServer():
@@ -202,15 +225,15 @@ class SJMPServer():
         :param target: The object to expose, will fallback to self if None
         :param max_clients: The max number of concurrent connection
         """
-        s = self.server_socket = socket.socket(socket.AF_INET,
-                                               socket.SOCK_STREAM)
+        s, pathspec = _get_socket(hostname, port, unlink=True)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        s.bind((hostname, port))
+        s.bind(pathspec)
+        self.server_socket = s
         s.listen(max_clients)
         self.invoke = invoke
-        self.threads = []
         self.target = target
+        self.client_count = 0
 
     """This call never returns!"""
     def communicate(self, timeout=5.0, *args, **kwargs):
@@ -229,9 +252,10 @@ class SJMPServer():
             else:
                 thread = Thread(target=_new_server_client,
                                 args=(client, self.invoke, self.target),
-                                name='SJMPClient%s' % (len(self.threads) + 1))
+                                name='SJMPClient%s' % self.client_count)
+                self.client_count += 1
+                thread.setDaemon(True)
                 thread.start()
-                self.threads.append(thread)
 
     def stop(self):
         self.server_socket.close()
@@ -257,8 +281,8 @@ class SJMPClient(SimpleJSONMessagePassing):
         :param port: The TCP port it is listening on
         :param target: The object to expose, will fallback to self if None
         """
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((hostname, port))
+        s, pathspec = _get_socket(hostname, port)
+        s.connect(pathspec)
         super(SJMPClient, self).__init__(s, target=target, name='SJMPClient')
 
     def stop(self):

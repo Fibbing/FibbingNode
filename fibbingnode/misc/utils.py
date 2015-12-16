@@ -1,5 +1,6 @@
 import os
 import sys
+
 from time import sleep
 from fibbingnode import log
 
@@ -60,7 +61,7 @@ def force(f, *args, **kwargs):
     try:
         return f(*args, **kwargs)
     except Exception as e:
-        log.exception(e)
+        log.debug(e, exc_info=1)
         return None
 
 
@@ -84,3 +85,47 @@ def dump_threads():
     for line in code:
         print >> sys.stderr, line
     print >> sys.stderr, "\n*** STACKTRACE - END ***\n"
+
+
+def read_pid(n):
+    """
+    Extract a pid from a file
+    :param n: path to a file
+    :return: pid as a string
+    """
+    try:
+        with open(n, 'r') as f:
+            return str(f.read()).strip(' \n\t')
+    except:
+        return None
+
+
+def del_file(f):
+    force(os.remove, f)
+
+
+class ConfigDict(dict):
+    """
+    A dictionary whose attributes are its keys
+    """
+
+    def __init__(self, **kwargs):
+        super(ConfigDict, self).__init__()
+        for key, val in kwargs.iteritems():
+            self[key] = val
+
+    def __getattr__(self, item):
+        # so that self.item == self[item]
+        try:
+            # But preserve i.e. methods
+            return super(ConfigDict, self).__getattr__(item)
+        except:
+            try:
+                return self[item]
+            except KeyError:
+                return None
+
+    def __setattr__(self, key, value):
+        # so that self.key = value <==> self[key] = key
+        self[key] = value
+

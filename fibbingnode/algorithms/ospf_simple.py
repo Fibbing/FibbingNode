@@ -49,7 +49,8 @@ class OSPFSimple(object):
         """Complete the DAG so that missing nodes have their old (or part of)
         SPT in it"""
         for n in self.igp_graph:
-            if n in self.dag or n in self.reqs:
+            if n in self.dag or n in self.reqs or\
+                    not self.igp_graph.successors(n):
                 continue  # n has its SPT instructions or is a destination node
             for p in self.igp_paths[n][0][self.dest]:
                 for u, v in zip(p[:-1], p[1:]):
@@ -75,7 +76,7 @@ class OSPFSimple(object):
                 sinks = dag.predecessors(dest)
                 for s in sinks:
                     logger.info('Adding edge (%s, %s) in the graph',
-                             s, self.dest)
+                                s, self.dest)
                     topo.add_edge(s, dest, weight=self.new_edge_weight)
                 for n in topo.nodes_iter():
                     if n == dest:  # dest is a path in itself
@@ -104,7 +105,8 @@ class OSPFSimple(object):
             for node in nx.topological_sort(dag, reverse=True)[1:]:
                 nhs, original_nhs = self.nhs_for(node, dag, dest)
                 if not self.require_fake_node(nhs, original_nhs):
-                    logger.debug('%s does not require a fake node', node)
+                    logger.debug('%s does not require a fake node (%s - %s)',
+                                 node, nhs, original_nhs)
                     continue
                 for req_nh in nhs:
                     logger.debug('Placing a fake node for nh %s', req_nh)

@@ -2,7 +2,7 @@ hostname ${node.hostname}
 password ${node.password}
 !
 % for intf in node.ospf.interfaces:
-interface ${intf.name}
+  interface ${intf.name}
   # ${intf.description}
   # Highiest priority routers will be DR
   ip ospf priority ${intf.ospf.priority}
@@ -14,9 +14,15 @@ interface ${intf.name}
 % endfor
 router ospf
   router-id ${node.ospf.router_id}
-  !
+  % if node.ospf.redistribute.fibbing:
   redistribute fibbing metric-type 1
-  !
+  % endif
+  % if node.ospf.redistribute.connected:
+  redistribute connected metric-type 1 metric ${node.ospf.redistribute.connected}
+  % endif
+  % if node.ospf.redistribute.static:
+  redistribute static metric-type 1 metric ${node.ospf.redistribute.static}
+  % endif
   % for net in node.ospf.networks:
   network ${net.domain} area ${net.area}
   % endfor
