@@ -6,22 +6,17 @@ from fibbingnode.algorithms.ospf_simple import OSPFSimple
 from fibbingnode.misc.sjmp import SJMPClient, ProxyCloner
 from fibbingnode import CFG
 from fibbingnode import log
-import logging
 from ConfigParser import DEFAULTSECT
+
+import abc
 import networkx as nx
 
 
-log.setLevel(logging.DEBUG)
-
-
-class SouthboundManager(ShapeshifterProxy):
-    def __init__(self, fwd_dags=None, optimizer=None, additional_routes=None):
+class SouthboundController(ShapeshifterProxy):
+    def __init__(self, *args, **kwargs):
+        super(SouthboundController, self).__init__(*args, **kwargs)
         self.igp_graph = nx.DiGraph()
         self.dirty = False
-        self.additional_routes = additional_routes
-        self.optimizer = optimizer if optimizer else OSPFSimple()
-        self.fwd_dags = fwd_dags if fwd_dags else {}
-        self.current_lsas = set([])
         self.json_proxy = SJMPClient(hostname=CFG.get(DEFAULTSECT,
                                                       'json_hostname'),
                                      port=CFG.getint(DEFAULTSECT, 'json_port'),
@@ -33,10 +28,71 @@ class SouthboundManager(ShapeshifterProxy):
         self.json_proxy.communicate()
 
     def stop(self):
-        self.quagga_manager.remove(list(self.current_lsas))
         self.json_proxy.stop()
 
-    # Helper functions
+    def boostrap_graph(self, graph):
+        self.igp_graph.clear()
+        for u, v, metric in graph:
+            self.igp_graph.add_edge(u, v, weight=int(metric))
+        log.debug('Bootstrapped graph with edges: %s',
+                  self.igp_graph.edges(data=True))
+        log.debug('Sending initial lsa''s')
+        if self.additional_routes:
+            self.quagga_manager.add_static(self.additional_routes)
+        self._refresh_lsas()
+
+    def add_edge(self, source, destination, metric):
+        self.igp_graph.add_edge(source, destination, weight=int(metric))
+        log.debug('Added edge: %s-%s@%s', source, destination, metric)
+        try:
+            self.igp_graph[destination][source]
+        except KeyError:
+            # Only trigger an update if the link is bidirectional
+            pass
+        else:
+            self.dirty = True
+
+    def commit(self):
+        if self.dirty:
+            self.dirty = False
+            self.graph_changed()
+
+    @abc.abstractmethod
+    def graph_changed(self):
+        """Called when there has been a change in the IGP topology"""
+
+    def remove_edge(self, source, destination):
+        # TODO: pay attention to re-add the symmetric edge if only one way
+        # crashed
+        try:
+            self.igp_graph.remove_edge(source, destination)
+            log.debug('Removed edge %s-%s', source, destination)
+            self.igp_graph.remove_edge(destination, source)
+            log.debug('Removed edge %s-%s', destination, source)
+        except nx.NetworkXError:
+            # This means that we had already removed both side of the edge
+            # earlier
+            pass
+        else:
+            self.dirty = True
+
+
+class SouthboundManager(SouthboundController):
+    def __init__(self,
+                 fwd_dags=None,
+                 optimizer=None,
+                 additional_routes=None,
+                 *args, **kwargs):
+        self.additional_routes = additional_routes
+        self.current_lsas = set([])
+        self.optimizer = optimizer if optimizer else OSPFSimple()
+        self.fwd_dags = fwd_dags if fwd_dags else {}
+        super(SouthboundManager, self).__init__(*args, **kwargs)
+
+    def graph_changed(self):
+        super(SouthboundManager, self).graph_changed()
+        self._refresh_lsas()
+
     def _refresh_augmented_topo(self):
         log.info('Solving topologies')
         try:
@@ -62,50 +118,7 @@ class SouthboundManager(ShapeshifterProxy):
         if to_add:
             self.quagga_manager.add(list(to_add))
 
-    # Interface functions
-    def boostrap_graph(self, graph):
-        self.igp_graph.clear()
-        for u, v, metric in graph:
-            self.igp_graph.add_edge(u, v, weight=int(metric))
-        log.debug('Bootstrapped graph with edges: %s',
-                  self.igp_graph.edges(data=True))
-        log.debug('Sending initial lsa''s')
-        if self.additional_routes:
-            self.quagga_manager.add_static(self.additional_routes)
-        self._refresh_lsas()
-
-    def add_edge(self, source, destination, metric):
-        self.igp_graph.add_edge(source, destination, weight=int(metric))
-        log.debug('Added edge: %s-%s@%s', source, destination, metric)
-        try:
-            self.igp_graph[destination][source]
-        except KeyError:
-            # Only trigger an update if the link is bidirectional
-            pass
-        else:
-            self.dirty = True
-
-    def commit(self):
-        if self.dirty:
-            self._refresh_lsas()
-            self.dirty = False
-
-    def remove_edge(self, source, destination):
-        # TODO: pay attention to re-add the symmetric edge if only one way
-        # crashed
-        try:
-            self.igp_graph.remove_edge(source, destination)
-            log.debug('Removed edge %s-%s', source, destination)
-            self.igp_graph.remove_edge(destination, source)
-            log.debug('Removed edge %s-%s', destination, source)
-        except nx.NetworkXError:
-            # This means that we had already removed both side of the edge
-            # earlier
-            pass
-        else:
-            self.dirty = True
-
-    def path_requirement(self, prefix, path):
+    def simple_path_requirement(self, prefix, path):
         """Add a path requirement for the given prefix.
 
         :param path: The ordered list of routerid composing the path.
@@ -113,3 +126,7 @@ class SouthboundManager(ShapeshifterProxy):
                      used as requirements: [](A, B), (B, C), (C, D)]"""
         self.fwd_dags[prefix] = nx.DiGraph([(s, d) for s, d in zip(path[:-1],
                                                                    path[1:])])
+
+    def stop(self):
+        self.quagga_manager.remove(list(self.current_lsas))
+        super(SouthboundManager, self).stop()
