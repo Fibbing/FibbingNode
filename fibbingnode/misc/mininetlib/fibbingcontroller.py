@@ -14,11 +14,16 @@ log = get_logger()
 
 
 class FibbingController(_node.Host, L3Router):
+
+    instance_count = 0
+
     def __init__(self, name, cfg_path=None, *args, **kwargs):
         super(FibbingController, self).__init__(name, *args, **kwargs)
         self.config_params = kwargs.get(CFG_KEY, {})
         self.socket_path = "/tmp/%s.socket" % self.name
         self.cfg_path = "%s.cfg" % self.name if not cfg_path else cfg_path
+        self.instance_number = FibbingController.instance_count
+        FibbingController.instance_count += 1
 
     def start(self):
         self.cmd('ip', 'link', 'set', 'dev', 'lo', 'up')
@@ -58,6 +63,9 @@ class FibbingController(_node.Host, L3Router):
             cfg.set(cparser.DEFAULTSECT, key, val)
         cfg.set(cparser.DEFAULTSECT,
                 'json_hostname', 'unix://%s' % self.socket_path)
+        cfg.set(cparser.DEFAULTSECT,
+                'controller_instance_number',
+                self.instance_number)
         connected_intfs = [itf
                            for itf in self.intfList()
                            if L3Router.is_l3router_intf(otherIntf(itf)) and

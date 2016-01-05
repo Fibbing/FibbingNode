@@ -170,14 +170,7 @@ def handle_args():
                         default=None)
     args = parser.parse_args()
 
-    path = CFG.get(DEFAULTSECT, 'controller_instances')
-    if not os.path.exists(path):
-        instance_count = 1
-    else:
-        with open(path, 'r') as f:
-            instance_count = int(f.read())
-    with open(path, 'w') as f:
-        f.write('%s' % (instance_count + 1))
+    instance_count = CFG.getint(DEFAULTSECT, 'controller_instance_number')
 
     # Update default config
     if args.cfg:
