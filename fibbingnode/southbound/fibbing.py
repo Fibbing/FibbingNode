@@ -268,15 +268,20 @@ class FibbingManager(object):
             route = []
             for p in parts:
                 src, dst, cost = p[0], p[1], p[2]
-                if cost == -1:
-                    cost = 1
-                else:
+                if cost >= 0:
                     src = None
                 fwd_addr = self.root.get_fwd_address(src, dst)
                 # Can have multiple private addresses per interface, handle
                 # here the selection ...
                 if isinstance(fwd_addr, list):
-                    fwd_addr = fwd_addr[0]
+                    try:
+                        fwd_addr = fwd_addr[cost]
+                    except ValueError:
+                        log.warning('Required private forwarding address index'
+                                    'is out of bounds. Wanted: %s - Have %s',
+                                    abs(cost), len(fwd_addr))
+                        fwd_addr = fwd_addr[0]
+                    cost = 1
                 route.append((fwd_addr, str(cost)))
             yield prefix, route
 

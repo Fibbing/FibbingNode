@@ -21,7 +21,10 @@ class FakeNodeProxy(object):
                 * fwd: The forwarding address to use, either the loopback of
                         that node if source is null, or the address
                         of the interface on that node of the link source--fwd
-                * metric: the metric associated with the route
+                * metric: the metric associated with the route. If the metric
+                          is < 0, the controller will install a locally
+                          visible lie using abs(metric) to choose which private
+                          IP to use.
                 * prefix: the network prefix corresponding to this route
         """
 
