@@ -3,6 +3,7 @@ import networkx as nx
 from fibbingnode import log as logger
 import sys
 
+
 class OSPFSimple(object):
     def __init__(self):
         self.new_edge_weight = 10e4
