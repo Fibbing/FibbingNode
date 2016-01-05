@@ -141,3 +141,14 @@ class ExtendedLSA(object):
 
 
 ExtLSARoute = collections.namedtuple('ExtLSARoute', 'dest cost')
+
+
+class LocalLie(LSA):
+    def __init__(self, prefix, edge_src, edge_dst, ipindex=1):
+        super(LocalLie, self).__init__(node=edge_src, nh=edge_dst,
+                                       cost=-ipindex, dest=prefix)
+
+
+class GlobalLie(LSA):
+    def __init__(self, dest, cost, nh, node=None):
+        super(GlobalLie, self).__init__(node=node, dest=dest, cost=cost, nh=nh)
