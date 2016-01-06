@@ -130,3 +130,16 @@ class SouthboundManager(SouthboundController):
     def stop(self):
         self.quagga_manager.remove(list(self.current_lsas))
         super(SouthboundManager, self).stop()
+
+
+class StaticPathManager(SouthboundManager):
+    def __init__(self, *args, **kwargs):
+        super(StaticPathManager, self).__init__(*args, **kwargs)
+
+    def add_local_lies(self, *locallies):
+        """Add a sequence of local lies (see utils.LocalLie)"""
+        self.quagga_manager.add(list(locallies))
+
+    def add_global_lies(self, *globallies):
+        """Add a sequence of global lies (see utils.GlobalLie)"""
+        self.quagga_manager.add(list(globallies))
