@@ -276,7 +276,7 @@ class FibbingManager(object):
                 if isinstance(fwd_addr, list):
                     try:
                         fwd_addr = fwd_addr[cost]
-                    except ValueError:
+                    except IndexError:
                         log.warning('Required private forwarding address index'
                                     'is out of bounds. Wanted: %s - Have %s',
                                     abs(cost), len(fwd_addr))
