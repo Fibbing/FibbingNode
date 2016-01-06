@@ -373,7 +373,7 @@ class LSDB(object):
                         except KeyError:
                             iplist = self.router_private_address[rid] = []
                         # Enable single private address as string
-                        if isinstance(ip, string):
+                        if isinstance(ip, str):
                             ip = [ip]
                         iplist.extend(ip)
         except Exception as e:
