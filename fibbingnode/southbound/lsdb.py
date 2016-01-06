@@ -372,6 +372,9 @@ class LSDB(object):
                             iplist = self.router_private_address[rid]
                         except KeyError:
                             iplist = self.router_private_address[rid] = []
+                        # Enable single private address as string
+                        if isinstance(ip, string):
+                            ip = [ip]
                         iplist.extend(ip)
         except Exception as e:
             log.warning('Incorrect private IP addresses binding file')
