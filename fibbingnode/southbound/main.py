@@ -187,7 +187,7 @@ def handle_args():
     # or in args
     ports = set(p for p in CFG.sections()
                 if not (p == 'fake' or p == 'physical' or p == DEFAULTSECT))
-    ports = ports.union(args.ports)
+    ports.update(args.ports)
     if not ports:
         log.warning('The fibbing node will not be connected '
                     'to any physical ports!')
