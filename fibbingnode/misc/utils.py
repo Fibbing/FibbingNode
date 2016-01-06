@@ -129,3 +129,6 @@ class ConfigDict(dict):
         # so that self.key = value <==> self[key] = key
         self[key] = value
 
+
+def cmp_prefixlen(x, y):
+    return x.prefixlen < y.prefixlen

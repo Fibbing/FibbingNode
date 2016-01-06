@@ -14,6 +14,8 @@ from fibbingnode.misc.mininetlib import get_logger, PRIVATE_IP_KEY, CFG_KEY,\
 from fibbingnode.misc.mininetlib.iprouter import IPRouter
 from fibbingnode.misc.mininetlib.fibbingcontroller import FibbingController
 
+from fibbingnode.misc.utils import cmp_prefixlen
+
 log = get_logger()
 
 
@@ -177,8 +179,9 @@ class IPNet(Mininet):
     :param scale_factor: the number of ip to assign per interface"""
     def network_for_domains(self, net, domains, scale_factor=1):
         domains.sort(key=len, reverse=True)
-        networks = [ip_network(net)]
-        net_space = networks[0].max_prefixlen
+        net = ip_network(net)
+        networks = [net]
+        net_space = net.max_prefixlen
         """We keep the networks sorted as x < y so that the bigger domains
         take the smallest network before subdividing
         The assumption is that if the domains range from the biggest to
@@ -196,38 +199,32 @@ class IPNet(Mininet):
                           "broadcast domains")
                 sys.exit(1)
             intf_count = len(d) * scale_factor
-            max_prefix = net_space - math.ceil(math.log(2 + intf_count, 2))
+            plen = net_space - math.ceil(math.log(2 + intf_count, 2))
+            if plen < networks[-1].prefixlen:
+                raise ValueError('Could not find a subnet big enough for a '
+                                 'broadcast domain, aborting!')
+            log.debug('Allocating prefix %s in network %s for interfaces %s',
+                      plen, net, d)
             # Try to find a suitable subnet in the list
-            success = False
             for i, net in enumerate(networks):
                 nets = []
-                curr_len = net.prefixlen
                 # if the subnet is too big for the prefix, expand it
-                while max_prefix > curr_len:
-                    curr_len += 1
-                    # Get list of subnets
-                    subs = list(net.subnets(new_prefix=curr_len))
-                    # Pre-prend it to the previously expanded subnets as it
-                    # is smaller
-                    subs.extend(nets)
-                    nets = subs
-                    net = nets.pop(0)
+                while plen > net.prefixlen:
+                    # Get list of subnets and append to list of previous
+                    # subnets as it is bigger wrt. prefixlen
+                    nets.extend(net.subnets(prefixlen_diff=1))
+                    net = nets.pop(-1)
                 # Check if we have an appropriately-sized subnet
-                if max_prefix == curr_len:
+                if plen == net.prefixlen:
+                    # Remove and return the expanded/used network
                     yield (net, d)
-                    # Remove the expanded/used network
-                    networks.pop(i)
+                    del networks[i]
                     # Insert the creadted subnets if any
                     networks.extend(nets)
                     # Sort the array again
-                    networks.sort(cmp=lambda x, y: x.prefixlen < y.prefixlen)
-                    success = True
+                    networks.sort(cmp=cmp_prefixlen)
                     break
-            # Check that one allocation occurred during the loop
-            if not success:
-                log.error("Could not find a subnet big enough for the "
-                          "broadcast domain")
-                sys.exit(1)
+                # Otherwise try the next network
 
     """Returns [ [ intf ]* ]"""
     def broadcast_domains(self):

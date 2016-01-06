@@ -39,7 +39,7 @@ class SouthboundController(ShapeshifterProxy):
         log.debug('Bootstrapped graph with edges: %s',
                   self.igp_graph.edges(data=True))
         self.received_initial_graph()
-        self._refresh_lsas()
+        self.refresh_lsas()
 
     def received_initial_graph(self):
         pass
