@@ -300,8 +300,13 @@ class TopologyDB(object):
         with open(fpath, 'w') as f:
             json.dump(self.network, f)
 
+    def interface(self, x, y):
+        """Return the ip_interface for node x facing node y"""
+        return ip_interface(self.network[x][y]['ip'])
+
     def subnet(self, x, y):
-        return ip_interface(self.network[x][y]['ip']).network.with_prefixlen
+        """Return the subnet linking node x and y"""
+        return self.interface(x, y).network.with_prefixlen
 
     def routerid(self, x):
         n = self.network[x]
