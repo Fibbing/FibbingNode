@@ -6,6 +6,7 @@ from ipaddress import ip_interface, ip_network
 
 from mininet.net import Mininet
 from mininet.node import Host
+from mininet.nodelib import LinuxBridge
 
 import fibbingnode.misc.mininetlib as _lib
 from fibbingnode.misc.mininetlib import get_logger, PRIVATE_IP_KEY, CFG_KEY,\
@@ -40,6 +41,7 @@ class IPNet(Mininet):
                  ipBase='192.168.0.0/16',
                  private_ip_bindings='private_ip_binding.json',
                  debug=_lib.DEBUG_FLAG,
+                 switch=LinuxBridge,
                  *args, **kwargs):
         _lib.DEBUG_FLAG = debug
         if debug:
@@ -52,7 +54,7 @@ class IPNet(Mininet):
         self.routers = []
         self.ip_allocs = {}
         super(IPNet, self).__init__(ipBase=ipBase, controller=controller,
-                                    *args, **kwargs)
+                                    switch=switch, *args, **kwargs)
 
     def addRouter(self, name, cls=None, **params):
         defaults = {'private_net': self.private_ip_net}

@@ -35,7 +35,7 @@ class Node(object):
         :param prefix: The namespace prefix
         """
         if not prefix:
-            raise Exception('Namespaced nodes require a prefix!')
+            raise Exception('Controller nodes require a prefix!')
         self.id = '%s_%s' % (prefix, id)
         self.next_port = -1
         self.interfaces = OrderedDict()
