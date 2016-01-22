@@ -4,14 +4,14 @@ from collections import defaultdict
 from itertools import chain
 from threading import Thread
 import json
-from networkx import DiGraph, draw_networkx_labels
-import os
+from ConfigParser import DEFAULTSECT
+
 from fibbingnode import log, CFG
 from interface import ShapeshifterProxy
-from ipaddress import ip_interface, ip_address, ip_network
-from ConfigParser import DEFAULTSECT
 from fibbingnode.misc.sjmp import ProxyCloner
+from fibbingnode.misc.igp_graph import IGPGraph
 
+from ipaddress import ip_interface, ip_address, ip_network
 
 ADD = 'ADD'
 FWD_ADDR = 'fwd_addr'
@@ -36,57 +36,7 @@ SEP_INTER_FIELD = ';'
 # for line in ... in parse_lsdblog()
 SEP_LSA = '\n'
 
-
-def graph_diff(a, b):
-    diff = []
-    for u, v in a.edges_iter():
-        try:
-            d = b[u][v]
-        except:
-            diff.append((u, v))
-    return diff
-
-
-def draw_graph(graph):
-    try:
-        layout = spring_layout(graph)
-        metrics = {
-            (src, dst): data['metric']
-            for src, dst, data in graph.edges_iter(data=True)
-        }
-        draw_networkx_edge_labels(graph, layout, edge_labels=metrics)
-        draw(graph, layout, node_size=20)
-        draw_networkx_labels(graph, layout, labels={n: n for n in graph})
-        output = CFG.get(DEFAULTSECT, 'graph_loc')
-        if os.path.exists(output):
-            os.unlink(output)
-        plt.savefig(output)
-        plt.close()
-        log.debug('Graph of %d nodes saved in %s', len(graph), output)
-    except:
-        pass
-
-# The draw_graph call will be remapped to 'nothing' if matplotlib (aka extra
-# packages) is not available
-try:
-    from networkx import spring_layout, draw_networkx_edge_labels, draw
-    import matplotlib.pyplot as plt
-except ImportError as e:
-    log.warning('Missing packages to draw the network, disabling the fonction')
-    draw_graph = lambda x: True
-
-
-def contract_graph(graph, nodes, into):
-    """
-    Contract the graph
-    :param graph: The graph to contract
-    :param nodes: The set of nodes to contract into one
-    :param into: The (new) node that should be the contraction
-    """
-    edges = graph.edges(nodes, data=True)
-    graph.add_edges_from(map(lambda x: (into, x[1], x[2]), edges))
-    graph.remove_nodes_from(nodes)
-
+BASE_NET = ip_network(CFG.get(DEFAULTSECT, 'base_net'))
 
 class Link(object):
     TYPE = '0'
@@ -109,7 +59,7 @@ class Link(object):
     def endpoints(self, lsdb):
         """
         Give the list of endpoint IPS/router-id for that link
-        :param graph: A DiGraph of the network
+        :param graph: A IGPGraph of the network
         :param lsdb: an LSDB instance in order to resolve
                     e.g. routerid or interface IPs
         :return: list of IPs or router-id
@@ -260,6 +210,7 @@ class RouterLSA(LSA):
     def apply(self, graph, lsdb):
         for link in self.links:
             for endpoint in link.endpoints(lsdb):
+                graph.add_router(self.routerid)
                 graph.add_edge(self.routerid,
                                endpoint,
                                metric=link.metric,
@@ -332,13 +283,10 @@ class ASExtLSA(LSA):
                                 for part in lsa_prop])
 
     def apply(self, graph, lsdb):
-        # TODO figure out if we actually need to filter these out or not
-        # if ip_address(self.routerid) in lsdb.exclude_net and \
-        #    CFG.getboolean(DEFAULTSECT, 'exclude_fake_lsa'):
-        #     log.debug('Skipping AS-external Fake LSA %s via %s',
-        #               self.address, [self.resolve_fwd_addr(r.fwd_addr)
-        #                              for r in self.routes])
-        #     return
+        if ip_address(self.routerid) in BASE_NET:
+            graph.add_fake_prefix(self.prefix)
+        else:
+            graph.add_prefix(self.prefix)
         for route in self.routes:
             graph.add_edge(self.resolve_fwd_addr(route.fwd_addr), self.prefix,
                            metric=route.metric)
@@ -384,7 +332,7 @@ class LSDB(object):
         self.last_line = ''
         self.leader_watchdog = None
         self.transaction = None
-        self.graph = DiGraph()
+        self.graph = IGPGraph()
         self.routers = {}  # router-id : lsa
         self.networks = {}  # DR IP : lsa
         self.ext_networks = {}  # (router-id, dest) : lsa
@@ -527,7 +475,7 @@ class LSDB(object):
         return '\n'.join(strs)
 
     def build_graph(self):
-        new_graph = DiGraph()
+        new_graph = IGPGraph()
         # Rebuild the graph from the LSDB
         for lsa in chain(self.routers.values(),
                          self.networks.values(),
@@ -538,7 +486,6 @@ class LSDB(object):
             lsa.contract_graph(new_graph, self.router_private_address.get(
                 lsa.routerid, []))
         # Figure out the controllers layout
-        base_net = ip_network(CFG.get(DEFAULTSECT, 'base_net'))
         controller_prefix = CFG.getint(DEFAULTSECT, 'controller_prefixlen')
         # Group by controller and log them
         for ip in new_graph.nodes_iter():
@@ -546,18 +493,20 @@ class LSDB(object):
                 addr = ip_address(ip)
             except ValueError:
                 continue  # Have a prefix
-            if addr in base_net:
+            if addr in BASE_NET:
                 """1. Compute address diff to remove base_net
                    2. Right shift to remove host bits
                    3. Mask with controller mask
                 """
-                id = (((int(addr) - int(base_net.network_address)) >>
-                       base_net.max_prefixlen - controller_prefix) &
+                id = (((int(addr) - int(BASE_NET.network_address)) >>
+                       BASE_NET.max_prefixlen - controller_prefix) &
                       ((1 << controller_prefix) - 1))
                 self.controllers[id].append(ip)
         # Contract them on the graph
         for id, ips in self.controllers.iteritems():
-            contract_graph(new_graph, ips, 'C_%s' % id)
+            cname = 'C_%s' % id
+            new_graph.add_controller(cname)
+            new_graph.contract(cname, ips)
         # Remove generated self loops
         new_graph.remove_edges_from(new_graph.selfloop_edges())
         self.apply_secondary_addresses(new_graph)
@@ -565,33 +514,27 @@ class LSDB(object):
 
     def update_graph(self, new_graph):
         self.leader_watchdog.check_leader(self.get_leader())
-        added_edges = graph_diff(new_graph, self.graph)
-        removed_edges = graph_diff(self.graph, new_graph)
+        added_edges = new_graph.difference(self.graph)
+        removed_edges = self.graph.difference(new_graph)
         # Propagate differences
-        if len(added_edges) > 0 or len(removed_edges) > 0:
+        if added_edges or removed_edges or node_prop_diff:
             log.debug('Pushing changes')
             for u, v in added_edges:
-                self.listener_add_edge(u, v, new_graph[u][v]['metric'])
+                self.for_all_listeners('add_edge',
+                                       u, v, metric=new_graph.metric(u, v))
             for u, v in removed_edges:
-                self.listener_remove_edge(u, v)
+                self.for_all_listeners('remove_edge', u, v)
             if CFG.getboolean(DEFAULTSECT, 'draw_graph'):
-                draw_graph(new_graph)
+                new_graph.draw(CFG.get(DEFAULTSECT, 'graph_loc'))
             self.graph = new_graph
-            log.info('LSA update yielded +%d -%d edges changes' %
-                     (len(added_edges), len(removed_edges)))
-            self.listener_commit()
+            log.info('LSA update yielded +%d -%d edges changes',
+                     len(added_edges), len(removed_edges))
+            self.for_all_listeners('commit')
 
-    def listener_commit(self):
-        for l in self.listener.itervalues():
-            l.commit()
-
-    def listener_add_edge(self, *args):
-        for l in self.listener.itervalues():
-            l.add_edge(*args)
-
-    def listener_remove_edge(self, *args):
-        for l in self.listener.itervalues():
-            l.remove_edge(*args)
+    def for_all_listeners(self, funcname, *args, **kwargs):
+        """Apply funcname to all listeners"""
+        for i in self.listener.itervalues():
+            getattr(i, funcname)(*args, **kwargs)
 
     def apply_secondary_addresses(self, graph):
         for subnet in self.private_address_binding.itervalues():

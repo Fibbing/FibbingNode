@@ -8,36 +8,9 @@ import networkx as nx
 from fibbingnode.southbound.interface import FakeNodeProxy, ShapeshifterProxy
 from fibbingnode.algorithms.ospf_simple import OSPFSimple
 from fibbingnode.misc.sjmp import SJMPClient, ProxyCloner
+from fibbingnode.misc.igp_graph import IGPGraph
 from fibbingnode import CFG
 from fibbingnode import log
-
-
-class IGPGraph(nx.DiGraph):
-    """This class represents an IGP graph, and defines a few useful bindings"""
-
-    @property
-    def routers(self):
-        """Returns a generator over all routers in the graph
-        Example: all_routers = list(graph.routers)
-        """
-        for n, d in self.out_degree_iter():
-            # Routers have at least one outgoing edge towards their neighbor
-            if d != 0:
-                yield n
-            # Or the router might be isolated
-            elif self.degree(n) == 0:
-                yield n
-
-    @property
-    def prefixes(self):
-        """Returns a generator over all prefixes that can be fibbed in the
-        graph
-        Example: all_prefixes = list(graph.prefixes)"""
-        for n, d in self.out_degree_iter():
-            # Prefixes are announced by routers (incoming edges), but have no
-            # outgoing edges
-            if d == 0 and self.in_degree(n) != 0:
-                yield n
 
 
 class SouthboundListener(ShapeshifterProxy):
