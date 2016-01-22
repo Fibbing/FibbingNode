@@ -36,7 +36,6 @@ SEP_INTER_FIELD = ';'
 # for line in ... in parse_lsdblog()
 SEP_LSA = '\n'
 
-BASE_NET = ip_network(CFG.get(DEFAULTSECT, 'base_net'))
 
 class Link(object):
     TYPE = '0'
@@ -208,9 +207,9 @@ class RouterLSA(LSA):
                          [Link.parse(part) for part in lsa_prop])
 
     def apply(self, graph, lsdb):
+        graph.add_router(self.routerid)
         for link in self.links:
             for endpoint in link.endpoints(lsdb):
-                graph.add_router(self.routerid)
                 graph.add_edge(self.routerid,
                                endpoint,
                                metric=link.metric,
@@ -218,9 +217,9 @@ class RouterLSA(LSA):
 
     def contract_graph(self, graph, private_ips):
         ips = [link.address for link in self.links
-               if not link.address == self.routerid]
+               if link.address != self.routerid]
         ips.extend(private_ips)
-        contract_graph(graph, ips, self.routerid)
+        graph.contract(self.routerid, ips)
 
     def __str__(self):
         return '[R]<%s: %s>' % (self.routerid,
@@ -283,7 +282,7 @@ class ASExtLSA(LSA):
                                 for part in lsa_prop])
 
     def apply(self, graph, lsdb):
-        if ip_address(self.routerid) in BASE_NET:
+        if ip_address(self.routerid) in LSDB.BASE_NET:
             graph.add_fake_prefix(self.prefix)
         else:
             graph.add_prefix(self.prefix)
@@ -307,7 +306,11 @@ class ASExtLSA(LSA):
 
 
 class LSDB(object):
+
+    BASE_NET = ip_network(CFG.get(DEFAULTSECT, 'base_net'))
+
     def __init__(self):
+        self.BASE_NET = ip_network(CFG.get(DEFAULTSECT, 'base_net'))
         self.private_address_network = ip_network(CFG.get(DEFAULTSECT,
                                                   'private_net'))
         try:
@@ -373,8 +376,12 @@ class LSDB(object):
             log.info('Shapeshifter connected.')
             l = ProxyCloner(ShapeshifterProxy, listener)
             self.listener[listener] = l
-            l.boostrap_graph(graph=[(u, v, d.get('metric', -1))
-                                    for u, v, d in self.graph.edges(data=True)])
+            l.bootstrap_graph(graph=[(u, v, d.get('metric', -1))
+                                     for u, v, d in self.graph.edges(data=True)
+                                     ],
+                              node_properties={n: data for n, data in
+                                               self.graph.nodes_iter(data=True)
+                                               })
 
     @staticmethod
     def extract_lsa_properties(lsa_part):
@@ -475,6 +482,7 @@ class LSDB(object):
         return '\n'.join(strs)
 
     def build_graph(self):
+        self.controllers.clear()
         new_graph = IGPGraph()
         # Rebuild the graph from the LSDB
         for lsa in chain(self.routers.values(),
@@ -493,13 +501,13 @@ class LSDB(object):
                 addr = ip_address(ip)
             except ValueError:
                 continue  # Have a prefix
-            if addr in BASE_NET:
+            if addr in self.BASE_NET:
                 """1. Compute address diff to remove base_net
                    2. Right shift to remove host bits
                    3. Mask with controller mask
                 """
-                id = (((int(addr) - int(BASE_NET.network_address)) >>
-                       BASE_NET.max_prefixlen - controller_prefix) &
+                id = (((int(addr) - int(self.BASE_NET.network_address)) >>
+                       self.BASE_NET.max_prefixlen - controller_prefix) &
                       ((1 << controller_prefix) - 1))
                 self.controllers[id].append(ip)
         # Contract them on the graph
@@ -516,6 +524,10 @@ class LSDB(object):
         self.leader_watchdog.check_leader(self.get_leader())
         added_edges = new_graph.difference(self.graph)
         removed_edges = self.graph.difference(new_graph)
+        node_prop_diff = {n: data
+                          for n, data in new_graph.nodes_iter(data=True)
+                          if n not in self.graph or
+                          (data.viewitems() - self.graph.node[n].viewitems())}
         # Propagate differences
         if added_edges or removed_edges or node_prop_diff:
             log.debug('Pushing changes')
@@ -524,11 +536,15 @@ class LSDB(object):
                                        u, v, metric=new_graph.metric(u, v))
             for u, v in removed_edges:
                 self.for_all_listeners('remove_edge', u, v)
+            if node_prop_diff:
+                self.for_all_listeners('update_node_properties',
+                                       **node_prop_diff)
             if CFG.getboolean(DEFAULTSECT, 'draw_graph'):
                 new_graph.draw(CFG.get(DEFAULTSECT, 'graph_loc'))
             self.graph = new_graph
-            log.info('LSA update yielded +%d -%d edges changes',
-                     len(added_edges), len(removed_edges))
+            log.info('LSA update yielded +%d -%d edges changes, '
+                    '%d node property changes', len(added_edges),
+                    len(removed_edges), len(node_prop_diff))
             self.for_all_listeners('commit')
 
     def for_all_listeners(self, funcname, *args, **kwargs):

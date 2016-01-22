@@ -134,6 +134,6 @@ class IGPGraph(nx.DiGraph):
 
     def contract(self, into, nbunch):
         """Contract nodes from nbunch into a single node named into"""
-        self.add_edges_from([(into, v, data)
-                             for _, v, data in self.edges(nbunch, data=True)])
+        self.add_edges_from(((into, v, data) for _, v, data
+                             in self.edges_iter(nbunch, data=True)))
         self.remove_nodes_from(nbunch)

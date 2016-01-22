@@ -37,12 +37,14 @@ class SouthboundListener(ShapeshifterProxy):
         """Stop the connection to the southbound controller"""
         self.json_proxy.stop()
 
-    def boostrap_graph(self, graph):
+    def bootstrap_graph(self, graph, node_properties):
         self.igp_graph.clear()
         for u, v, metric in graph:
             self.igp_graph.add_edge(u, v, weight=int(metric))
-        log.debug('Bootstrapped graph with edges: %s',
-                  self.igp_graph.edges(data=True))
+        for n, data in node_properties.iteritems():
+            self.igp_graph.node[n] = data
+        log.debug('Bootstrapped graph with edges: %s and properties: %s',
+                  self.igp_graph.edges(data=True), node_properties)
         self.received_initial_graph()
         self.graph_changed()
 
@@ -52,7 +54,9 @@ class SouthboundListener(ShapeshifterProxy):
         pass
 
     def add_edge(self, source, destination, metric):
-        self.igp_graph.add_edge(source, destination, weight=int(metric))
+        # metric is added twice to support backward-compat.
+        self.igp_graph.add_edge(source, destination,
+                                weight=int(metric), metric=int(metric))
         log.debug('Added edge: %s-%s@%s', source, destination, metric)
         # Only trigger an update if the link is bidirectional
         self.dirty = self.igp_graph.has_edge(destination, source)
@@ -83,6 +87,11 @@ class SouthboundListener(ShapeshifterProxy):
         else:
             self.dirty = True
 
+    def update_node_properties(self, **properties):
+        log.debug('Updating node propeties: %s', properties)
+        for node, data in properties.iteritems():
+            self.igp_graph.node[node] = data
+        self.dirty = self.dirty or properties
 
 class SouthboundController(SouthboundListener):
     """A simple northbound controller that monitors for changes in the IGP

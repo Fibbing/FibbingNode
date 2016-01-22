@@ -70,14 +70,23 @@ class ShapeshifterProxy(object):
         """
 
     @abstractmethod
+    def update_node_properties(self, **properties):
+        """
+        Update the properties of nodes in the graph
+        :param properties: a set of key-values where the keys are the node
+                            names and the values their property set.
+        """
+
+    @abstractmethod
     def commit(self):
         """Signals that all updates have been pushed and that no more
         add_edge/remove_edge calls will happen"""
 
     @abstractmethod
-    def boostrap_graph(self, graph):
+    def bootstrap_graph(self, graph, node_properties):
         """
         Instantiate an initial graph
         :param graph: a list of edges for that graph (router-id and/or
                         prefixes) + associated metric
+        :param node_properties: a dict of node: properties
         """

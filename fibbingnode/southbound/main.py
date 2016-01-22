@@ -8,7 +8,6 @@ import os
 import datetime
 from fibbing import FibbingManager
 import fibbingnode
-from lsdb import draw_graph
 from fibbingnode.misc.utils import dump_threads
 import signal
 
@@ -30,8 +29,9 @@ class FibbingCLI(Cmd):
     def do_show_lsdb(self, line=''):
         log.info(self.fibbing.root.lsdb)
 
-    def do_draw_network(self, line=''):
-        draw_graph(self.fibbing.root.lsdb.graph)
+    def do_draw_network(self, line):
+        """Draw the network as pdf in the given file"""
+        self.fibbing.root.lsdb.graph.draw(line)
 
     def do_print_graph(self, line=''):
         log.info('Current network graph: %s',
