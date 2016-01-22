@@ -70,6 +70,13 @@ class SouthboundListener(ShapeshifterProxy):
             self.igp_graph.add_edge(u, v, weight=int(metric))
         log.debug('Bootstrapped graph with edges: %s',
                   self.igp_graph.edges(data=True))
+        self.received_initial_graph()
+        self.graph_changed()
+
+    def received_initial_graph(self):
+        """Called when the initial graph has been bootstrapped, before
+        calling graph_changed"""
+        pass
 
     def add_edge(self, source, destination, metric):
         self.igp_graph.add_edge(source, destination, weight=int(metric))
@@ -214,8 +221,7 @@ class SouthboundManager(SouthboundController):
         self.fwd_dags[prefix] = nx.DiGraph([(s, d) for s, d in zip(path[:-1],
                                                                    path[1:])])
 
-    def boostrap_graph(self, *args, **kwargs):
-        super(SouthboundManager, self).boostrap_graph(*args, **kwargs)
+    def received_initial_graph(self):
         log.debug('Sending initial lsa''s')
         if self.additional_routes:
             self.advertize_lsa(*self.additional_routes)
