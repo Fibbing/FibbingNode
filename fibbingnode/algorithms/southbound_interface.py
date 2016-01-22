@@ -74,15 +74,11 @@ class SouthboundListener(ShapeshifterProxy):
     def add_edge(self, source, destination, metric):
         self.igp_graph.add_edge(source, destination, weight=int(metric))
         log.debug('Added edge: %s-%s@%s', source, destination, metric)
-        try:
-            self.igp_graph[destination][source]
-        except KeyError:
-            # Only trigger an update if the link is bidirectional
-            pass
-        else:
-            self.dirty = True
+        # Only trigger an update if the link is bidirectional
+        self.dirty = self.igp_graph.has_edge(destination, source)
 
     def commit(self):
+        log.debug('End of graph update')
         if self.dirty:
             self.dirty = False
             self.graph_changed()
