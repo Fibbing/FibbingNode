@@ -579,13 +579,18 @@ class LSDB(object):
             self.graph = new_graph
             log.info('LSA update yielded +%d -%d edges changes' %
                      (len(added_edges), len(removed_edges)))
+            self.listener_commit()
+
+    def listener_commit(self):
+        for l in self.listener.itervalues():
+            l.commit()
 
     def listener_add_edge(self, *args):
-        for l in self.listener.values():
+        for l in self.listener.itervalues():
             l.add_edge(*args)
 
     def listener_remove_edge(self, *args):
-        for l in self.listener.values():
+        for l in self.listener.itervalues():
             l.remove_edge(*args)
 
     def apply_secondary_addresses(self, graph):

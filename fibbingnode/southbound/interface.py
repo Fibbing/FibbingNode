@@ -10,6 +10,7 @@ import fibbingnode
 
 
 class FakeNodeProxy(object):
+    """The interface that a southbound controller implements"""
 
     @abstractmethod
     def add(self, points):
@@ -41,14 +42,14 @@ class FakeNodeProxy(object):
                 * prefix: the network prefix corresponding to this route
         """
 
-    def exit(self):
-        """
-        Kill the Southbound controller
-        """
+    @staticmethod
+    def exit():
+        """Kill the Southbound controller"""
         fibbingnode.EXIT.set()
 
 
 class ShapeshifterProxy(object):
+    """The interface that a Northbound controller application must implement"""
 
     @abstractmethod
     def add_edge(self, source, destination, metric):
@@ -67,6 +68,11 @@ class ShapeshifterProxy(object):
         :param source: The source node of the edge
         :param destination: The destination of the edge
         """
+
+    @abstractmethod
+    def commit(self):
+        """Signals that all updates have been pushed and that no more
+        add_edge/remove_edge calls will happen"""
 
     @abstractmethod
     def boostrap_graph(self, graph):
