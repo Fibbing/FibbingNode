@@ -202,6 +202,7 @@ class SouthboundManager(SouthboundController):
                      used as requirements: [](A, B), (B, C), (C, D)]"""
         self.fwd_dags[prefix] = nx.DiGraph([(s, d) for s, d in zip(path[:-1],
                                                                    path[1:])])
+        self.refresh_lsas()
 
     def received_initial_graph(self):
         log.debug('Sending initial lsa''s')
