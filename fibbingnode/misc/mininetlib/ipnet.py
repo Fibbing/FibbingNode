@@ -31,6 +31,8 @@ class IPNet(Mininet):
         :param private_ip_bindings: The file name for the private ip binding
         :param controller_net: The prefix to use for the Fibbing controllers
                                 Internal networks
+        :param max_alloc_prefixlen: The maximal prefix for the auto-allocated
+                                    broadcast domains
     """
     def __init__(self,
                  router=IPRouter,
@@ -39,6 +41,7 @@ class IPNet(Mininet):
                  private_ip_net='10.0.0.0/8',
                  controller_net='172.16.0.0/12',
                  ipBase='192.168.0.0/16',
+                 max_alloc_prefixlen=24,
                  private_ip_bindings='private_ip_binding.json',
                  debug=_lib.DEBUG_FLAG,
                  switch=LinuxBridge,
@@ -53,6 +56,7 @@ class IPNet(Mininet):
         self.controller_net = controller_net
         self.routers = []
         self.ip_allocs = {}
+        self.max_alloc_prefixlen = max_alloc_prefixlen
         super(IPNet, self).__init__(ipBase=ipBase, controller=controller,
                                     switch=switch, *args, **kwargs)
 
@@ -175,11 +179,16 @@ class IPNet(Mininet):
                                                range(0, self.private_ip_count)]
         return allocations
 
-    """"Return [ ( subnet, [ intf* ] )* ]
-    :param net: the original network to split
-    :param domains: the list of broadcast domains
-    :param scale_factor: the number of ip to assign per interface"""
-    def network_for_domains(self, net, domains, scale_factor=1):
+    @staticmethod
+    def network_for_domains(net, domains, scale_factor=1,
+                            max_prefixlen=sys.maxint):
+        """"Return [ ( subnet, [ intf* ] )* ]
+        Assign a network prefix to every broadcast domain
+        :param net: the original network to split
+        :param domains: the list of broadcast domains
+        :param scale_factor: the number of ip to assign per interface
+        :param max_prefixlen: The maximal length of the prefix allocated for
+                              each broadcast domain"""
         domains.sort(key=len, reverse=True)
         net = ip_network(net)
         networks = [net]
@@ -201,7 +210,8 @@ class IPNet(Mininet):
                           "broadcast domains")
                 sys.exit(1)
             intf_count = len(d) * scale_factor
-            plen = net_space - math.ceil(math.log(2 + intf_count, 2))
+            plen = min(max_prefixlen,
+                       net_space - math.ceil(math.log(2 + intf_count, 2)))
             if plen < networks[-1].prefixlen:
                 raise ValueError('Could not find a subnet big enough for a '
                                  'broadcast domain, aborting!')
@@ -228,8 +238,8 @@ class IPNet(Mininet):
                     break
                 # Otherwise try the next network
 
-    """Returns [ [ intf ]* ]"""
     def broadcast_domains(self):
+        """Returns [ [ intf ]* ]"""
         domains = []
         itfs = (intf for n in self.values() for intf in n.intfList()
                 if intf.name != 'lo' and
