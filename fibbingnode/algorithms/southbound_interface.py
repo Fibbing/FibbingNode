@@ -41,8 +41,7 @@ class SouthboundListener(ShapeshifterProxy):
         self.igp_graph.clear()
         for u, v, metric in graph:
             self.igp_graph.add_edge(u, v, weight=int(metric))
-        for n, data in node_properties.iteritems():
-            self.igp_graph.node[n] = data
+        self.update_node_properties(node_properties)
         log.debug('Bootstrapped graph with edges: %s and properties: %s',
                   self.igp_graph.edges(data=True), node_properties)
         self.received_initial_graph()
@@ -90,7 +89,7 @@ class SouthboundListener(ShapeshifterProxy):
     def update_node_properties(self, **properties):
         log.debug('Updating node propeties: %s', properties)
         for node, data in properties.iteritems():
-            self.igp_graph.node[node] = data
+            self.igp_graph.node[node].update(data)
         self.dirty = self.dirty or properties
 
 class SouthboundController(SouthboundListener):
