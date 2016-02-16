@@ -187,7 +187,7 @@ class SouthboundManager(SouthboundController):
         log.info('Solving topologies')
         if not self.json_proxy.alive() or not self.has_initial_topo:
             log.debug('Skipping as we do not yet have a topology')
-            return
+            return self.advertized_lsa
         try:
             self.optimizer.solve(self.igp_graph,
                                  self.fwd_dags)
