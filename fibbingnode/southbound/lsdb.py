@@ -313,27 +313,23 @@ class LSDB(object):
         self.BASE_NET = ip_network(CFG.get(DEFAULTSECT, 'base_net'))
         self.private_address_network = ip_network(CFG.get(DEFAULTSECT,
                                                   'private_net'))
+        self.router_private_address = defaultdict(list)
         try:
             with open(CFG.get(DEFAULTSECT, 'private_ips'), 'r') as f:
                 self.private_address_binding = json.load(f)
-                self.router_private_address = {}
                 for subnets in self.private_address_binding.itervalues():
                     for rid, ip in subnets.iteritems():
-                        try:
-                            iplist = self.router_private_address[rid]
-                        except KeyError:
-                            iplist = self.router_private_address[rid] = []
+                        iplist = self.router_private_address[rid]
                         # Enable single private address as string
-
-                        if not (isinstance(targets, Sequence)
-                                and not isinstance(targets, basestring)):
+                        if not (isinstance(ip, Sequence)
+                                and not isinstance(ip, basestring)):
                             ip = [ip]
                         iplist.extend(ip)
         except Exception as e:
-            log.warning('Incorrect private IP addresses binding file')
-            log.warning(str(e))
+            log.error('Incorrect private IP addresses binding file')
+            log.error(str(e))
             self.private_address_binding = {}
-            self.router_private_address = {}
+            self.router_private_address.clear()
         self.last_line = ''
         self.leader_watchdog = None
         self.transaction = None
@@ -411,14 +407,22 @@ class LSDB(object):
         :return: forwarding address (str)
                 or None if no compatible address was found
         """
+        # If we have a src address, we want the set of private IPs
+        # Otherwise we want any IP of dst
+        u, v, key = (src, dst, 'dst_address') if src\
+                    else (dst, self.graph.neighbors(dst)[0], 'src_address')
         try:
-            # If we have a src address, we want the set of private IPs
-            return (self.graph[src][dst]['dst_address'] if src
-                    # Otherwise we want any IP of dst
-                    else self.graph[dst][self.graph.neighbors(dst)[0]]
-                    ['src_address'])
+            edge = self.graph[u][v]
         except KeyError:
-            log.debug('%s-%s not found in graph', src, dst)
+            log.error('%s-%s not found in graph when resolving '
+                      'forwarding address of (%s,%)', u, v, src, dst)
+            return None
+        try:
+            return edge[key]
+        except KeyError:
+            log.error('%s not found in the properties of edge %s-%s '
+                      'when resolving forwarding address of (%s,%s)\n%s',
+                      key, u, v, src, dst, edge)
             return None
 
     def remove_lsa(self, lsa):
@@ -567,6 +571,7 @@ class LSDB(object):
                     try:
                         graph[src][dst]['dst_address'] = ip
                     except KeyError:
+                        # The nodes are (not yet) on the graph
                         pass
 
 

@@ -284,10 +284,10 @@ class FibbingManager(object):
                         fwd_addr = fwd_addr[0]
                     cost = 1
                 try:
-                    fwd_addr = ip_interface(fwd_addr).ip
+                    fwd_addr = str(ip_interface(fwd_addr).ip)
                 except ValueError:
                     log.debug('Forwarding address for %s-%s has no netmask: %s',
-                            src, dst, fwd_addr)
+                              src, dst, fwd_addr)
                 route.append((fwd_addr, str(cost)))
             yield prefix, route
 
@@ -390,7 +390,7 @@ class FibbingRoute(object):
                 point.retract(self.prefix)
             return point.node
         except KeyError:
-            log.debug('Unkown attraction point %s for prefix %s',
+            log.info('Unkown attraction point %s for prefix %s',
                       address, self.prefix)
             return None
 
