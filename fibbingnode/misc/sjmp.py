@@ -59,6 +59,9 @@ class SimpleJSONMessagePassing(object):
             RESULT: self._json_result
         }
 
+    def alive(self):
+        return not self.stopped
+
     def communicate(self, timeout=5.0):
         """
         Listen (until stop() is called) for incoming messages and execute the
