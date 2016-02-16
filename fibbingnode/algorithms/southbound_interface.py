@@ -180,10 +180,14 @@ class SouthboundManager(SouthboundController):
         self.current_lsas = set([])
         self.optimizer = optimizer if optimizer else OSPFSimple()
         self.fwd_dags = fwd_dags if fwd_dags else {}
+        self.has_initial_topo = False
         super(SouthboundManager, self).__init__(*args, **kwargs)
 
     def refresh_augmented_topo(self):
         log.info('Solving topologies')
+        if not self.json_proxy.alive() or not self.has_initial_topo:
+            log.debug('Skipping as we do not yet have a topology')
+            return
         try:
             self.optimizer.solve(self.igp_graph,
                                  self.fwd_dags)
@@ -205,5 +209,6 @@ class SouthboundManager(SouthboundController):
 
     def received_initial_graph(self):
         log.debug('Sending initial lsa''s')
+        self.has_initial_topo = True
         if self.additional_routes:
             self.advertize_lsa(*self.additional_routes)
