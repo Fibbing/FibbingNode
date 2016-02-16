@@ -291,6 +291,9 @@ class IPNet(Mininet):
 
 
 class TopologyDB(object):
+    """A convenience store for auto-allocated mininet properties.
+    This is *NOT* to be used as IGP graph for a controller application,
+    use the graphs reported by the southbound controller instead."""
     def __init__(self, db=None, net=None, *args, **kwargs):
         super(TopologyDB, self).__init__(*args, **kwargs)
         """
@@ -305,28 +308,40 @@ class TopologyDB(object):
             self.parse_net(net)
 
     def load(self, fpath):
+        """Load a topology database from the given filename"""
         with open(fpath, 'r') as f:
             self.network = json.load(f)
 
     def save(self, fpath):
+        """Save the topology database to the given filename"""
         with open(fpath, 'w') as f:
             json.dump(self.network, f)
 
+    def _interface(self, x, y):
+        return self.network[x][y]
+
     def interface(self, x, y):
         """Return the ip_interface for node x facing node y"""
-        return ip_interface(self.network[x][y]['ip'])
+        return ip_interface(self._interface(x, y)['ip'])
+
+    def interface_bandwidth(self, x, y):
+        """Return the bandwidth capacity of the interface on node x
+        facing node y. If it is unlimited, return -1"""
+        return self._interface(x, y)['bw']
 
     def subnet(self, x, y):
         """Return the subnet linking node x and y"""
         return self.interface(x, y).network.with_prefixlen
 
     def routerid(self, x):
+        """Return the OSPF router id for node named x"""
         n = self.network[x]
-        if not n['type'] == 'router':
+        if n['type'] != 'router':
             raise TypeError('%s is not a router' % x)
         return n['routerid']
 
     def parse_net(self, net):
+        """Stores the content of the given network"""
         for h in net.hosts:
             self.add_host(h)
         for s in net.switches:
@@ -336,23 +351,29 @@ class TopologyDB(object):
         for c in net.controllers:
             self.add_controller(c)
 
-    def add_node(self, n, props):
+    def _add_node(self, n, props):
+        """Register a network node"""
         for itf in n.intfList():
             props[otherIntf(itf).node.name] = {
                 'ip': '%s/%s' % (itf.ip, itf.prefixLen),
-                'name': itf.name
+                'name': itf.name,
+                'bw': itf.params.get('bw', -1)
             }
         self.network[n.name] = props
 
     def add_host(self, n):
-        self.add_node(n, {'type': 'host'})
+        """Register an host"""
+        self._add_node(n, {'type': 'host'})
 
     def add_controller(self, n):
-        self.add_node(n, {'type': 'controller'})
+        """Register an controller"""
+        self._add_node(n, {'type': 'controller'})
 
     def add_switch(self, n):
-        self.add_node(n, {'type': 'switch'})
+        """Register an switch"""
+        self._add_node(n, {'type': 'switch'})
 
     def add_router(self, n):
-        self.add_node(n, {'type': 'router',
-                          'routerid': n.id})
+        """Register an router"""
+        self._add_node(n, {'type': 'router',
+                           'routerid': n.id})
