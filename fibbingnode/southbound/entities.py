@@ -290,6 +290,7 @@ class RootRouter(Router):
         self.lsdb.register_change_listener(listener)
 
     def get_fwd_address(self, src, dst):
+        """Return the list of forwarding address from src to dst"""
         fwd = self.lsdb.forwarding_address_of(src, dst)
         log.debug('fwding address of %s-%s is %s', src, dst, fwd)
         return fwd

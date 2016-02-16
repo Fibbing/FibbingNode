@@ -243,7 +243,7 @@ class FibbingManager(object):
         """
         Remove elements of a route
         :param network: The prefix of the route
-        :param elems: The list of forwarding address to remove
+        :param elems: The list of forwarding addresses to remove
         """
         log.debug('Removing route for prefix %s, elements: %s', network, elems)
         net = ip_network(network)
@@ -278,10 +278,16 @@ class FibbingManager(object):
                         fwd_addr = fwd_addr[cost]
                     except IndexError:
                         log.warning('Required private forwarding address index'
-                                    ' is out of bounds. Wanted: %s - Have %s',
+                                    ' is out of bounds. Wanted index %s '
+                                    '- Have %s elements.',
                                     abs(cost), len(fwd_addr))
                         fwd_addr = fwd_addr[0]
                     cost = 1
+                try:
+                    fwd_addr = ip_interface(fwd_addr).ip
+                except ValueError:
+                    log.debug('Forwarding address for %s-%s has no netmask: %s',
+                            src, dst, fwd_addr)
                 route.append((fwd_addr, str(cost)))
             yield prefix, route
 
@@ -406,10 +412,7 @@ class AttractionPoint(object):
         :param node: The node advertizing this
         :return:
         """
-        try:
-            self.address = str(ip_interface(address).ip)
-        except ValueError:
-            self.address = address
+        self.address = address
         self.metric = metric
         self.node = node
         self.advertized = False

@@ -1,6 +1,6 @@
 from Queue import Queue, Empty
 from abc import abstractmethod
-from collections import defaultdict
+from collections import defaultdict, Sequence
 from itertools import chain
 from threading import Thread
 import json
@@ -324,7 +324,9 @@ class LSDB(object):
                         except KeyError:
                             iplist = self.router_private_address[rid] = []
                         # Enable single private address as string
-                        if isinstance(ip, str):
+
+                        if not (isinstance(targets, Sequence)
+                                and not isinstance(targets, basestring)):
                             ip = [ip]
                         iplist.extend(ip)
         except Exception as e:
@@ -401,16 +403,20 @@ class LSDB(object):
 
     def forwarding_address_of(self, src, dst):
         """
-        Return the forwarding address for a src, dst pair. If src is specified, return
-        the private 'link-local' address of the src-dst link, otherwise return a 'public'
-        IP belonging to dst
+        Return the forwarding address for a src, dst pair.
+        If src is specified, return the private 'link-local' address of
+        the src-dst link, otherwise return a 'public' IP belonging to dst
         :param src: the source node of the link towards the FA, possibly null
         :param dst: the node owning the forwarding address
-        :return: forwarding address (str) or None if no compatible address was found
+        :return: forwarding address (str)
+                or None if no compatible address was found
         """
         try:
-            return self.graph[src][dst]['dst_address'] if src \
-                else self.graph[dst][self.graph.neighbors(dst)[0]]['src_address']
+            # If we have a src address, we want the set of private IPs
+            return (self.graph[src][dst]['dst_address'] if src
+                    # Otherwise we want any IP of dst
+                    else self.graph[dst][self.graph.neighbors(dst)[0]]
+                    ['src_address'])
         except KeyError:
             log.debug('%s-%s not found in graph', src, dst)
             return None
