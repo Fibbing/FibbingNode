@@ -375,7 +375,7 @@ class LSDB(object):
             l = ProxyCloner(ShapeshifterProxy, listener)
             self.listener[listener] = l
             l.bootstrap_graph(graph=[(u, v, d)
-                                     for u, v, d in self.graph.edges(data=True)
+                                     for u, v, d in self.graph.export_edges()
                                      ],
                               node_properties={n: data for n, data in
                                                self.graph.nodes_iter(data=True)
@@ -542,7 +542,8 @@ class LSDB(object):
         if added_edges or removed_edges or node_prop_diff:
             log.debug('Pushing changes')
             for u, v in added_edges:
-                self.for_all_listeners('add_edge', u, v, new_graph[u][v])
+                self.for_all_listeners('add_edge', u, v,
+                                       new_graph.export_edge_data(u, v))
             for u, v in removed_edges:
                 self.for_all_listeners('remove_edge', u, v)
             if node_prop_diff:

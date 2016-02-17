@@ -34,6 +34,9 @@ else:
 
 class IGPGraph(nx.DiGraph):
     """This class represents an IGP graph, and defines a few useful bindings"""
+
+    EXPORT_KEYS = ('metric', 'fake', 'local')
+
     def __init__(self, metric_key='metric',
                  *args, **kwargs):
         super(IGPGraph, self).__init__(*args, **kwargs)
@@ -142,3 +145,17 @@ class IGPGraph(nx.DiGraph):
         self.add_edges_from(((into, v, data) for _, v, data
                              in self.edges_iter(nbunch, data=True)))
         self.remove_nodes_from(nbunch)
+
+    def _filter_edge_data(self, data):
+        return {n: data.get(n, False) for n in self.EXPORT_KEYS}
+
+    def export_edge_data(self, u, v):
+        """Return the exportable properties of an edge"""
+        return self._filter_edge_data(self[u][v])
+
+    def export_edges(self):
+        """Return a generator yielding a 3-tuple for all edges:
+        src, dst, exportable properties"""
+        for u, v, d in self.edges_iter(data=True):
+            export_data = self._filter_edge_data(d)
+            yield u, v, export_data
