@@ -52,13 +52,14 @@ class ShapeshifterProxy(object):
     """The interface that a Northbound controller application must implement"""
 
     @abstractmethod
-    def add_edge(self, source, destination, metric):
+    def add_edge(self, source, destination, properties={'metric': 1}):
         """
         Add a new directed edge to the network graph
         :param source: The source node for that edge
                         (possibly a new node altogether)
         :param destination: The destination node for that edge
-        :param metric: The metric of that edge, e.g. for SPT computations
+        :param properties: The properties of that edge,
+                             e.g. metric for SPT computations
         """
 
     @abstractmethod
@@ -87,6 +88,6 @@ class ShapeshifterProxy(object):
         """
         Instantiate an initial graph
         :param graph: a list of edges for that graph (router-id and/or
-                        prefixes) + associated metric
+                        prefixes) + associated properties
         :param node_properties: a dict of node: properties
         """

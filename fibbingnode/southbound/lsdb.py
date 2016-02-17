@@ -374,7 +374,7 @@ class LSDB(object):
             log.info('Shapeshifter connected.')
             l = ProxyCloner(ShapeshifterProxy, listener)
             self.listener[listener] = l
-            l.bootstrap_graph(graph=[(u, v, d.get('metric', -1))
+            l.bootstrap_graph(graph=[(u, v, d)
                                      for u, v, d in self.graph.edges(data=True)
                                      ],
                               node_properties={n: data for n, data in
@@ -542,8 +542,7 @@ class LSDB(object):
         if added_edges or removed_edges or node_prop_diff:
             log.debug('Pushing changes')
             for u, v in added_edges:
-                self.for_all_listeners('add_edge',
-                                       u, v, metric=new_graph.metric(u, v))
+                self.for_all_listeners('add_edge', u, v, new_graph[u][v])
             for u, v in removed_edges:
                 self.for_all_listeners('remove_edge', u, v)
             if node_prop_diff:
@@ -553,8 +552,8 @@ class LSDB(object):
                 new_graph.draw(CFG.get(DEFAULTSECT, 'graph_loc'))
             self.graph = new_graph
             log.info('LSA update yielded +%d -%d edges changes, '
-                    '%d node property changes', len(added_edges),
-                    len(removed_edges), len(node_prop_diff))
+                     '%d node property changes', len(added_edges),
+                     len(removed_edges), len(node_prop_diff))
             self.for_all_listeners('commit')
 
     def for_all_listeners(self, funcname, *args, **kwargs):
