@@ -59,7 +59,7 @@ class Node(object):
 
 class Merger(object):
     def __init__(self):
-        self.new_edge_weight = 10e3  # Default cost for new edges in the graph
+        self.new_edge_metric = 10e3  # Default cost for new edges in the graph
         self.g = self._p = self.dag = self.dest = self.reqs = None
         self.ecmp = collections.defaultdict(set)
 
@@ -161,7 +161,7 @@ class Merger(object):
                 if not dest_in_graph:
                     log.info('Adding edge (%s, %s) in the graph',
                              s, self.dest)
-                    self.g.add_edge(s, self.dest, weight=self.new_edge_weight)
+                    self.g.add_edge(s, self.dest, metric=self.new_edge_metric)
                     log.debug('Updating spt/cost accordingly')
                     for n in self.g.nodes_iter():
                         if n == self.dest:
@@ -170,7 +170,7 @@ class Merger(object):
                             continue
                         if not self.has_path(n, s):
                             continue
-                        ns_cost = self.cost(n, s) + self.new_edge_weight
+                        ns_cost = self.cost(n, s) + self.new_edge_metric
                         if ns_cost < new_paths_cost[n]:  # Created a new SP
                             ns_path = self.path(n, s)
                             new_paths_cost[n] = ns_cost

@@ -34,8 +34,10 @@ else:
 
 class IGPGraph(nx.DiGraph):
     """This class represents an IGP graph, and defines a few useful bindings"""
-    def __init__(self, *args, **kwargs):
+    def __init__(self, metric_key='metric',
+                 *args, **kwargs):
         super(IGPGraph, self).__init__(*args, **kwargs)
+        self.metric_key = metric_key
 
     def draw(self, dest):
         """Draw this graph to dest"""
@@ -128,9 +130,12 @@ class IGPGraph(nx.DiGraph):
         announced by fake LSAs"""
         return self._get_all(self.is_fake_prefix)
 
-    def metric(self, u, v):
-        """Return the link metric for link u->v"""
-        return self[u][v]['metric']
+    def metric(self, u, v, m=None):
+        """Return the link metric for link u->v, or set it if m is not None"""
+        if m:
+            self[u][v][self.metric_key] = m
+        else:
+            return self[u][v].get(self.metric_key, 1)
 
     def contract(self, into, nbunch):
         """Contract nodes from nbunch into a single node named into"""

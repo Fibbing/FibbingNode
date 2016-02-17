@@ -33,7 +33,7 @@ def check_fwd_dags(fwd_req, topo, lsas, solver):
                     dag.add_edge(s, dest)
                 if not dest_in_graph:
                     topo.add_edge(s, dest,
-                                  weight=solver.solver.new_edge_weight)
+                                  metric=solver.solver.new_edge_metric)
     fake_nodes = {}
     local_fake_nodes = {}
     f_ids = set()
@@ -43,9 +43,9 @@ def check_fwd_dags(fwd_req, topo, lsas, solver):
                 f_id = '__f_%s_%s_%s' % (lsa.node, lsa.nh, route.dest)
                 f_ids.add(f_id)
                 fake_nodes[(lsa.node, f_id, route.dest)] = lsa.nh
-                cost = topo[lsa.node][lsa.nh]['weight']
-                topo.add_edge(lsa.node, f_id, weight=cost)
-                topo.add_edge(f_id, route.dest, weight=route.cost - cost)
+                cost = topo[lsa.node][lsa.nh]['metric']
+                topo.add_edge(lsa.node, f_id, metric=cost)
+                topo.add_edge(f_id, route.dest, metric=route.cost - cost)
                 log.debug('Added a globally-visible fake node: '
                           '%s - %s - %s - %s - %s [-> %s]',
                           lsa.node, cost, f_id, route.cost - cost,
@@ -55,7 +55,7 @@ def check_fwd_dags(fwd_req, topo, lsas, solver):
                 log.debug('Added a locally-visible fake node: %s -> %s',
                           lsa.node, lsa.nh)
 
-    spt = ssu.all_shortest_paths(topo, weight='weight')
+    spt = ssu.all_shortest_paths(topo, metric='metric')
     for dest, req_dag in fwd_req.iteritems():
         log.info('Validating requirements for dest %s', dest)
         dag = nx.DiGraph()
@@ -116,8 +116,8 @@ class Gadgets():
         self._setUpDoubleDiamond()
 
     @staticmethod
-    def _add_edge(g, src, dst, weight):
-        g.add_edges_from([(src, dst), (dst, src)], weight=weight)
+    def _add_edge(g, src, dst, metric):
+        g.add_edges_from([(src, dst), (dst, src)], metric=metric)
 
     def _setUpParallelTracks(self):
         #    A2--B2--C2--D2
@@ -183,11 +183,11 @@ class Gadgets():
         #  R2 -- 10  -- E2 -- 10 -+
 
         self.trap = g = nx.DiGraph()
-        self._add_edge(g, 'R1', 'E1', weight=100)
-        self._add_edge(g, 'R1', 'R2', weight=100)
-        self._add_edge(g, 'R2', 'E2', weight=10)
-        self._add_edge(g, 'E1', 'D', weight=10)
-        self._add_edge(g, 'E2', 'D', weight=10)
+        self._add_edge(g, 'R1', 'E1', metric=100)
+        self._add_edge(g, 'R1', 'R2', metric=100)
+        self._add_edge(g, 'R2', 'E2', metric=10)
+        self._add_edge(g, 'E1', 'D', metric=10)
+        self._add_edge(g, 'E2', 'D', metric=10)
 
     def _setUpSquare(self):
         self.square = g = nx.DiGraph()
@@ -200,13 +200,13 @@ class Gadgets():
         # 100
         #  |
         #  D2
-        self._add_edge(g, 'B1', 'B2', weight=3)
-        self._add_edge(g, 'T1', 'B1', weight=10)
-        self._add_edge(g, 'T2', 'T1', weight=10)
-        self._add_edge(g, 'B2', 'T1', weight=5)
-        self._add_edge(g, 'T2', 'B2', weight=100)
-        self._add_edge(g, 'D1', 'B2', weight=100)
-        self._add_edge(g, 'D2', 'B1', weight=100)
+        self._add_edge(g, 'B1', 'B2', metric=3)
+        self._add_edge(g, 'T1', 'B1', metric=10)
+        self._add_edge(g, 'T2', 'T1', metric=10)
+        self._add_edge(g, 'B2', 'T1', metric=5)
+        self._add_edge(g, 'T2', 'B2', metric=100)
+        self._add_edge(g, 'D1', 'B2', metric=100)
+        self._add_edge(g, 'D2', 'B1', metric=100)
 
     def _setUpDiamond(self):
         #  A  ---5---  Y1
@@ -219,14 +219,14 @@ class Gadgets():
         #  | /                    |
         #  O -------- 10 ---------+
         self.diamond = g = nx.DiGraph()
-        self._add_edge(g, 'A', 'Y1', weight=5)
-        self._add_edge(g, 'Y1', 'X', weight=10)
-        self._add_edge(g, 'A', 'Y2', weight=10)
-        self._add_edge(g, 'Y2', 'X', weight=15)
-        self._add_edge(g, 'X', 'D', weight=50)
-        self._add_edge(g, 'A', 'O', weight=25)
-        self._add_edge(g, 'X', 'O', weight=30)
-        self._add_edge(g, 'D', 'O', weight=10)
+        self._add_edge(g, 'A', 'Y1', metric=5)
+        self._add_edge(g, 'Y1', 'X', metric=10)
+        self._add_edge(g, 'A', 'Y2', metric=10)
+        self._add_edge(g, 'Y2', 'X', metric=15)
+        self._add_edge(g, 'X', 'D', metric=50)
+        self._add_edge(g, 'A', 'O', metric=25)
+        self._add_edge(g, 'X', 'O', metric=30)
+        self._add_edge(g, 'D', 'O', metric=10)
 
     def _setUpDoubleDiamond(self):
         #  + --------19--------- +
@@ -243,15 +243,15 @@ class Gadgets():
         #   /                    |
         #  A -------- 17 --------+
         self.ddiamond = g = nx.DiGraph()
-        self._add_edge(g, 'H1', 'D', weight=19)
-        self._add_edge(g, 'H1', 'Y1', weight=10)
-        self._add_edge(g, 'Y1', 'X', weight=5)
-        self._add_edge(g, 'H1', 'Y2', weight=15)
-        self._add_edge(g, 'Y2', 'X', weight=10)
-        self._add_edge(g, 'A', 'H2', weight=6)
-        self._add_edge(g, 'H2', 'X', weight=2)
-        self._add_edge(g, 'A', 'D', weight=17)
-        self._add_edge(g, 'X', 'D', weight=100)
+        self._add_edge(g, 'H1', 'D', metric=19)
+        self._add_edge(g, 'H1', 'Y1', metric=10)
+        self._add_edge(g, 'Y1', 'X', metric=5)
+        self._add_edge(g, 'H1', 'Y2', metric=15)
+        self._add_edge(g, 'Y2', 'X', metric=10)
+        self._add_edge(g, 'A', 'H2', metric=6)
+        self._add_edge(g, 'H2', 'X', metric=2)
+        self._add_edge(g, 'A', 'D', metric=17)
+        self._add_edge(g, 'X', 'D', metric=100)
 
 
 class MergerTestCase(unittest.TestCase):

@@ -21,18 +21,18 @@ def add_separate_destination_to_sinks(destination, input_topo, dag, cost=1):
     for node in find_sink(dag):
         log.debug("Connecting %s to %s with cost %d",
                   destination, node, cost)
-        input_topo.add_edge(node, destination, weight=cost)
+        input_topo.add_edge(node, destination, metric=cost)
         dag.add_edge(node, destination)
     return destination
 
 
-def all_shortest_paths(g, weight='weight'):
+def all_shortest_paths(g, metric='metric'):
     """Return all shortest paths for all pairs of node in the graph
     :type g: DiGraph"""
-    return {n: single_source_all_sp(g, n, weight=weight) for n in g}
+    return {n: single_source_all_sp(g, n, metric=metric) for n in g}
 
 
-def single_source_all_sp(g, source, weight='weight'):
+def single_source_all_sp(g, source, metric='metric'):
     """Return the list of all shortest paths originatig from src,
     and their associated costs.
 
@@ -58,11 +58,11 @@ def single_source_all_sp(g, source, weight='weight'):
             continue  # already searched this node.
         dist[v] = d
         for w, edgedata in g[v].items():
-            vw_dist = d + edgedata.get(weight, 1)
+            vw_dist = d + edgedata.get(metric, 1)
             seen_w = seen.get(w, sys.maxint)
             if vw_dist < dist.get(w, 0):
                 raise ValueError('Contradictory paths found: '
-                                 'negative weights?')
+                                 'negative "%s"?' %s metric)
             elif vw_dist < seen_w:  # vw is better than the old path
                 seen[w] = vw_dist
                 heapq.heappush(fringe, (vw_dist, w))

@@ -6,7 +6,7 @@ import sys
 
 class OSPFSimple(object):
     def __init__(self):
-        self.new_edge_weight = 10e4
+        self.new_edge_metric = 10e4
 
     def add_dest_to_graphs(self, dest, dag):
         if dest not in dag:
@@ -78,7 +78,7 @@ class OSPFSimple(object):
                 for s in sinks:
                     logger.info('Adding edge (%s, %s) in the graph',
                                 s, self.dest)
-                    topo.add_edge(s, dest, weight=self.new_edge_weight)
+                    topo.add_edge(s, dest, metric=self.new_edge_metric)
                 for n in topo.nodes_iter():
                     if n == dest:  # dest is a path in itself
                         self.igp_paths[n] = ([[n]], 0)
