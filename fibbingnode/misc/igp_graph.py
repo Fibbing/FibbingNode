@@ -10,12 +10,14 @@ try:
     import matplotlib.pyplot as plt
 except ImportError:
     log.warning('Missing packages to draw the network, disabling the fonction')
-    def draw_graph(*_): pass
+    def draw_graph(*_):
+        """Can't draw without matplotlib"""
+        pass
 else:
     def draw_graph(graph, output):
         """If matplotlib is available, draw the given graph to output file"""
         try:
-            layout = spring_layout(graph)
+            layout = nx.spring_layout(graph)
             metrics = {
                 (src, dst): data['metric']
                 for src, dst, data in graph.edges_iter(data=True)
