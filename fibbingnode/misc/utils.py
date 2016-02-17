@@ -1,5 +1,6 @@
 import os
 import sys
+import collections
 
 from time import sleep
 from fibbingnode import log
@@ -132,3 +133,9 @@ class ConfigDict(dict):
 
 def cmp_prefixlen(x, y):
     return x.prefixlen < y.prefixlen
+
+
+def is_container(x):
+    """Return whether x is a container (=iterable but not a string)"""
+    return (isinstance(x, collections.Sequence) and
+            not isinstance(x, basestring))

@@ -1,6 +1,6 @@
 from Queue import Queue, Empty
 from abc import abstractmethod
-from collections import defaultdict, Sequence
+from collections import defaultdict
 from itertools import chain
 from threading import Thread
 import json
@@ -10,6 +10,7 @@ from fibbingnode import log, CFG
 from interface import ShapeshifterProxy
 from fibbingnode.misc.sjmp import ProxyCloner
 from fibbingnode.misc.igp_graph import IGPGraph
+from fibbingnode.misc.utils import is_container
 
 from ipaddress import ip_interface, ip_address, ip_network
 
@@ -321,8 +322,7 @@ class LSDB(object):
                     for rid, ip in subnets.iteritems():
                         iplist = self.router_private_address[rid]
                         # Enable single private address as string
-                        if not (isinstance(ip, Sequence)
-                                and not isinstance(ip, basestring)):
+                        if not is_container(ip):
                             ip = [ip]
                         iplist.extend(ip)
         except Exception as e:
