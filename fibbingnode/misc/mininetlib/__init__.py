@@ -21,6 +21,7 @@ PRIVATE_IP_KEY = '__fibbing_private_ips'
 CFG_KEY = '__fibbing_controller_config_key'
 BDOMAIN_KEY = '__fibbing_broadcast_domains'
 FIBBING_MIN_COST = 2
+FIBBING_DEFAULT_AREA = '0.0.0.0'
 DEBUG_FLAG = False
 
 

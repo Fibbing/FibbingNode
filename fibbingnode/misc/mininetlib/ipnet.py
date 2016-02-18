@@ -11,7 +11,8 @@ from mininet.nodelib import LinuxBridge
 import fibbingnode.misc.mininetlib as _lib
 from fibbingnode.misc.mininetlib import get_logger, PRIVATE_IP_KEY, CFG_KEY,\
                                         otherIntf, FIBBING_MIN_COST,\
-                                        BDOMAIN_KEY, routers_in_bd
+                                        BDOMAIN_KEY, routers_in_bd,
+                                        FIBBING_DEFAULT_AREA
 from fibbingnode.misc.mininetlib.iprouter import IPRouter
 from fibbingnode.misc.mininetlib.fibbingcontroller import FibbingController
 
@@ -275,13 +276,15 @@ class IPNet(Mininet):
         return domains
 
     def addLink(self, node1, node2, port1=None, port2=None,
-                cost=FIBBING_MIN_COST, **params):
+                cost=FIBBING_MIN_COST, area=FIBBING_DEFAULT_AREA, **params):
         params1 = params.get('params1', {})
         if 'cost' not in params1:
             params1.update(cost=cost)
         params2 = params.get('params2', {})
         if 'cost' not in params2:
             params2.update(cost=cost)
+        params1['area'] = FIBBING_DEFAULT_AREA
+        params2['area'] = FIBBING_DEFAULT_AREA
         params.update(params1=params1)
         params.update(params2=params2)
         super(IPNet, self).addLink(node1, node2, port1, port2, **params)

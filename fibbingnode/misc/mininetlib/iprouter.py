@@ -4,7 +4,8 @@ from ipaddress import ip_interface
 
 from fibbingnode.misc.mininetlib import get_logger, PRIVATE_IP_KEY,\
                                         FIBBING_MIN_COST, otherIntf,\
-                                        BDOMAIN_KEY, L3Router, routers_in_bd
+                                        BDOMAIN_KEY, L3Router, routers_in_bd,\
+                                        FIBBING_DEFAULT_AREA
 import fibbingnode.misc.router
 
 log = get_logger()
@@ -87,6 +88,7 @@ class MininetRouterConfig(RouterConfigDict):
         networks = []
         for itf in router.ospf_interfaces():
             c = itf.params.get('cost', FIBBING_MIN_COST)
+            area = itf.params.get('area', FIBBING_DEFAULT_AREA)
             cfg.interfaces\
                .append(ConfigDict(name=itf.name,
                                   description=str(itf.link),
@@ -96,19 +98,19 @@ class MininetRouterConfig(RouterConfigDict):
                                                   .dead_interval,
                                                   hello_int=router
                                                   .hello_interval)))
-            networks.append(ip_interface('%s/%s' % (itf.ip, itf.prefixLen))
-                            .network)
+            networks.append((ip_interface('%s/%s' % (itf.ip, itf.prefixLen))
+                             .network, area))
             # TODO figure out the private config knob so that the private
             # addresses dont create redundant OSPF session over the same
             # interface ...
             try:
-                networks.append(ip_interface(itf.params[PRIVATE_IP_KEY][0])
-                                .network)
+                networks.append((ip_interface(itf.params[PRIVATE_IP_KEY][0])
+                                 .network, area))
             except KeyError:
                 pass  # No private ip on that interface
-        for net in networks:
+        for net, area in networks:
             cfg.networks.append(ConfigDict(domain=net.with_prefixlen,
-                                           area='0.0.0.0'))
+                                           area=area))
         return cfg
 
     def build_zebra(self, router):
