@@ -135,6 +135,16 @@ def cmp_prefixlen(x, y):
     return x.prefixlen < y.prefixlen
 
 
+def extend_paths_list(paths, n):
+    """Return and iterator on a new set of paths,
+    built by copying the original paths
+    and appending a new node at the end of it"""
+    for p in paths:
+        x = p[:]
+        x.append(n)
+        yield x
+
+
 def is_container(x):
     """Return whether x is a container (=iterable but not a string)"""
     return (isinstance(x, collections.Sequence) and

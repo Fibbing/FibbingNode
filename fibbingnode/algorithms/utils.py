@@ -3,6 +3,7 @@ import sys
 import functools
 import collections
 from fibbingnode import log as log
+from fibbingnode.misc.utils import extend_paths_list
 import networkx as nx
 
 
@@ -70,16 +71,6 @@ def single_source_all_sp(g, source, metric='metric'):
             elif vw_dist == seen_w:  # vw is ECMP
                 paths[w].extend(extend_paths_list(paths[v], w))
     return paths, dist
-
-
-def extend_paths_list(paths, n):
-    """Return and iterator on a new set of paths,
-    built by copying the original paths
-    and appending a new node at the end of it"""
-    for p in paths:
-        x = p[:]
-        x.append(n)
-        yield x
 
 
 def dag_paths_from_leaves(dag, target):
