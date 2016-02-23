@@ -312,24 +312,7 @@ class LSDB(object):
 
     def __init__(self):
         self.BASE_NET = ip_network(CFG.get(DEFAULTSECT, 'base_net'))
-        self.private_address_network = ip_network(CFG.get(DEFAULTSECT,
-                                                  'private_net'))
-        self.router_private_address = defaultdict(list)
-        try:
-            with open(CFG.get(DEFAULTSECT, 'private_ips'), 'r') as f:
-                self.private_address_binding = json.load(f)
-                for subnets in self.private_address_binding.itervalues():
-                    for rid, ip in subnets.iteritems():
-                        iplist = self.router_private_address[rid]
-                        # Enable single private address as string
-                        if not is_container(ip):
-                            ip = [ip]
-                        iplist.extend(ip)
-        except Exception as e:
-            log.error('Incorrect private IP addresses binding file')
-            log.error(str(e))
-            self.private_address_binding = {}
-            self.router_private_address.clear()
+        self.private_addresses = PrivateAddressStore()
         self.last_line = ''
         self.leader_watchdog = None
         self.transaction = None
@@ -588,3 +571,54 @@ class Transaction(object):
             lsdb.remove_lsa(lsa)
         for lsa in self.add:
             lsdb.add_lsa(lsa)
+
+
+class PrivateAddressStore(object):
+    """A wrapper to serve as database to help cope with the private addresses
+    madness"""
+
+    def __init__(self):
+        (self._address_bindings,
+         self._bdomains,
+         self._domainkeys) = self.__read_private_ips()
+
+    def __read_private_ips(self):
+        router_private_address = defaultdict(list)
+        ip_to_bd = defaultdict(list)
+        keys = []
+        try:
+            with open(CFG.get(DEFAULTSECT, 'private_ips'), 'r') as f:
+                private_address_binding = json.load(f)
+                for subnets in private_address_binding.itervalues():
+                    sub = []
+                    for rid, ip in subnets.iteritems():
+                        # Log router id in broadcast domain
+                        sub.append(rid)
+                        # Enable single private address as string
+                        if not is_container(ip):
+                            ip = [ip]
+                        router_private_address[rid].extend(ip)
+                        keys.extend(ip[0])
+                        for i in ip:
+                            # Register the broadcast domain for each ip
+                            ip_to_bd[i] = sub
+        except ValueError as e:
+            log.error('Incorrect private IP addresses binding file')
+            log.error(str(e))
+            ip_to_bd.clear()
+            router_private_address.clear()
+            keys.clear()
+        return router_private_address, ip_to_bd, keys
+
+    def addresses_of(self, rid):
+        """Return the list of private ip addresses for router id"""
+        return self._address_bindings[rid]
+
+    def targets_for(self, ip):
+        """Return the list of router ids able to reach the given private ip"""
+        return self._bdomains[ip]
+
+    def bdomains(self):
+        """Iterates over all private broadcast domains"""
+        for i in self._domainkeys:
+            yield self.targets_for(i)
