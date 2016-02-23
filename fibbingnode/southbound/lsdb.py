@@ -1,7 +1,8 @@
 from Queue import Queue, Empty
 from abc import abstractmethod
 from collections import defaultdict
-from itertools import chain
+from itertools import chain, permutations
+import functools
 from threading import Thread
 import json
 from ConfigParser import DEFAULTSECT
@@ -210,6 +211,9 @@ class RouterLSA(LSA):
     def apply(self, graph, lsdb):
         graph.add_router(self.routerid)
         for link in self.links:
+            # If the endpoints is not yet in the graph, its properties
+            # will be set by later calls to add_xxx as inserting nodes
+            # update their properties
             for endpoint in link.endpoints(lsdb):
                 graph.add_edge(self.routerid,
                                endpoint,
@@ -283,13 +287,18 @@ class ASExtLSA(LSA):
                                 for part in lsa_prop])
 
     def apply(self, graph, lsdb):
-        if ip_address(self.routerid) in LSDB.BASE_NET:
-            graph.add_fake_prefix(self.prefix)
-        else:
-            graph.add_prefix(self.prefix)
         for route in self.routes:
-            graph.add_edge(self.resolve_fwd_addr(route.fwd_addr), self.prefix,
-                           metric=route.metric)
+            fwd_addr = self.resolve_fwd_addr(route.fwd_addr)
+            if ip_address(self.routerid) in LSDB.BASE_NET:
+                try:
+                    targets = lsdb.private_addresses.targets_for(fwd_addr)
+                    method = functools.partial(graph.add_local_route,
+                                               targets=targets)
+                except KeyError:
+                    method = graph.add_fake_route
+            else:
+                method = graph.add_route
+            method(fwd_addr, self.prefix, metric=route.metric)
 
     def resolve_fwd_addr(self, fwd_addr):
         return self.routerid if fwd_addr == '0.0.0.0' else fwd_addr
@@ -392,8 +401,8 @@ class LSDB(object):
         """
         # If we have a src address, we want the set of private IPs
         # Otherwise we want any IP of dst
-        u, v, key = (src, dst, 'dst_address') if src\
-                    else (dst, self.graph.neighbors(dst)[0], 'src_address')
+        u, v, key = ((src, dst, 'dst_address') if src
+                     else (dst, self.graph.neighbors(dst)[0], 'src_address'))
         try:
             edge = self.graph[u][v]
         except KeyError:
@@ -473,14 +482,15 @@ class LSDB(object):
         self.controllers.clear()
         new_graph = IGPGraph()
         # Rebuild the graph from the LSDB
-        for lsa in chain(self.routers.values(),
-                         self.networks.values(),
-                         self.ext_networks.values()):
+        for lsa in chain(self.routers.itervalues(),
+                         self.networks.itervalues(),
+                         self.ext_networks.itervalues()):
             lsa.apply(new_graph, self)
         # Contract all IPs to their respective router-id
-        for lsa in self.routers.values():
-            lsa.contract_graph(new_graph, self.router_private_address.get(
-                lsa.routerid, []))
+        for rlsa in self.routers.itervalues():
+            rlsa.contract_graph(new_graph,
+                                self.private_addresses
+                                .addresses_of(rlsa.routerid))
         # Figure out the controllers layout
         controller_prefix = CFG.getint(DEFAULTSECT, 'controller_prefixlen')
         # Group by controller and log them
@@ -541,16 +551,14 @@ class LSDB(object):
             getattr(i, funcname)(*args, **kwargs)
 
     def apply_secondary_addresses(self, graph):
-        for subnet in self.private_address_binding.itervalues():
-            for dst, ip in subnet.iteritems():
-                for src in subnet.iterkeys():
-                    if src == dst:
-                        continue
-                    try:
-                        graph[src][dst]['dst_address'] = ip
-                    except KeyError:
-                        # The nodes are (not yet) on the graph
-                        pass
+        for ids in self.private_addresses.bdomains():
+            for src, dst in permutations(ids, 2):
+                try:
+                    graph[src][dst]['dst_address'] = self.private_addresses\
+                                                     .addresses_of(dst)
+                except KeyError:
+                    # The nodes are (not yet) on the graph
+                    pass
 
 
 class Transaction(object):
