@@ -459,16 +459,11 @@ class LSDB(object):
                     lsa = LSA.parse(LSAHeader.parse(lsa_parts.pop(0)),
                                     lsa_parts)
                     log.debug('Parsed %s: %s', action, lsa)
+                    provider = self.transaction if self.transaction else self
                     if action == REM:
-                        if not self.transaction:
-                            self.remove_lsa(lsa)
-                        else:
-                            self.transaction.remove_lsa(lsa)
+                        provider.remove_lsa(lsa)
                     elif action == ADD:
-                        if not self.transaction:
-                            self.add_lsa(lsa)
-                        else:
-                            self.transaction.add_lsa(lsa)
+                        provider.add_lsa(lsa)
                     if lsa.push_update_on_remove() or not action == REM:
                         commit = True
                 self.queue.task_done()
