@@ -162,7 +162,7 @@ class LSA(object):
         for subcls in LSA.__subclasses__():
             if subcls.TYPE == lsa_header.lsa_type:
                 return subcls.parse(lsa_header, lsa_prop)
-        log.error('Couldn''t parse the LSA type %S [%s]',
+        log.error('Couldn''t parse the LSA type %s [%s]',
                   lsa_header.lsa_type,
                   lsa_prop)
         return None
@@ -407,7 +407,7 @@ class LSDB(object):
             edge = self.graph[u][v]
         except KeyError:
             log.error('%s-%s not found in graph when resolving '
-                      'forwarding address of (%s,%)', u, v, src, dst)
+                      'forwarding address of (%s,%s)', u, v, src, dst)
             return None
         try:
             return edge[key]
@@ -502,8 +502,7 @@ class LSDB(object):
             if addr in self.BASE_NET:
                 """1. Compute address diff to remove base_net
                    2. Right shift to remove host bits
-                   3. Mask with controller mask
-                """
+                   3. Mask with controller mask"""
                 cid = (((int(addr) - int(self.BASE_NET.network_address)) >>
                         self.BASE_NET.max_prefixlen - controller_prefix) &
                        ((1 << controller_prefix) - 1))
