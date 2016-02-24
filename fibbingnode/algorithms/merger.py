@@ -463,11 +463,11 @@ class Merger(object):
         if new_lb > succ.lb:
             log.error('Merging %s into %s resulted in a LB increase from '
                       '%s to %s (%s''s LB: %s, spt cost: %s)',
-                      n, s, succ.lb, new_lb, node.lb, cost)
+                      n, s, succ.lb, new_lb, n, node.lb, cost)
         elif new_lb < succ.lb:
             log.error('Merging %s into %s resulted in a LB decrease from '
                       '%s to %s (%s''s LB: %s, spt cost: %s)',
-                      n, s, succ.lb, new_lb, node.lb, cost)
+                      n, s, succ.lb, new_lb, n, node.lb, cost)
         # Report unfeasibible merge
         if not new_lb + 1 < new_ub:
             log.debug('Merging %s into %s would lead to bounds of '
