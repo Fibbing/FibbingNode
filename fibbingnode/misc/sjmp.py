@@ -89,7 +89,7 @@ class SimpleJSONMessagePassing(object):
                     break
                 else:
                     try:
-                        input = json.loads(line, encoding='utf-8')
+                        decoded = json.loads(line, encoding='utf-8')
                     except ValueError:
                         log.debug('Malformed JSON message [%s] -- ignoring',
                                   line)
@@ -97,8 +97,8 @@ class SimpleJSONMessagePassing(object):
                         continue
                     else:
                         for key, f in self.hooks.items():
-                            if key == input[CMD]:
-                                f(input[CMD_ARG])
+                            if key == decoded[CMD]:
+                                f(decoded[CMD_ARG])
 
     def stop(self):
         """
