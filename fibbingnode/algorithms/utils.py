@@ -63,7 +63,7 @@ def single_source_all_sp(g, source, metric='metric'):
             seen_w = seen.get(w, sys.maxint)
             if vw_dist < dist.get(w, 0):
                 raise ValueError('Contradictory paths found: '
-                                 'negative "%s"?' %s metric)
+                                 'negative "%s"?' % metric)
             elif vw_dist < seen_w:  # vw is better than the old path
                 seen[w] = vw_dist
                 heapq.heappush(fringe, (vw_dist, w))

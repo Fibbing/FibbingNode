@@ -81,7 +81,6 @@ def dump_threads():
                                                         lineno, name))
             if line:
                 code.append("  %s" % (line.strip()))
-
     for line in code:
         log.error(line.strip('\n'))
     log.error("*** STACKTRACE - END ***")
