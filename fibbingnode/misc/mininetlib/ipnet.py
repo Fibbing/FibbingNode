@@ -11,7 +11,7 @@ from mininet.nodelib import LinuxBridge
 import fibbingnode.misc.mininetlib as _lib
 from fibbingnode.misc.mininetlib import get_logger, PRIVATE_IP_KEY, CFG_KEY,\
                                         otherIntf, FIBBING_MIN_COST,\
-                                        BDOMAIN_KEY, routers_in_bd,
+                                        BDOMAIN_KEY, routers_in_bd,\
                                         FIBBING_DEFAULT_AREA
 from fibbingnode.misc.mininetlib.iprouter import IPRouter
 from fibbingnode.misc.mininetlib.fibbingcontroller import FibbingController
