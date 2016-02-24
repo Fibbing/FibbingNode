@@ -95,7 +95,7 @@ class QuaggaRouter(object):
                   '-z', self.zebra_api, '-d', *extra_args)
 
     def get_config_node(self):
-        return RouterConfigDict()
+        return RouterConfigDict(self)
 
     def create_zebra_conf(self, confignode):
         self.render(ZEBRA_CFG_TEMPLATE, self.zebra_cfg, node=confignode)
