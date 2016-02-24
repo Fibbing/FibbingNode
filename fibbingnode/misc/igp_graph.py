@@ -3,6 +3,7 @@ import os
 import networkx as nx
 
 from fibbingnode import log
+from fibbingnode.misc.utils import extend_paths_list, is_container
 
 # The draw_graph call will be remapped to 'nothing' if matplotlib (aka extra
 # packages) is not available
@@ -45,10 +46,9 @@ LOCAL = 'local'
 class IGPGraph(nx.DiGraph):
     """This class represents an IGP graph, and defines a few useful bindings"""
 
-    EXPORT_KEYS = (METRIC, LOCAL, FAKE)
-
-    def __init__(self, *args, **kwargs):
+    def __init__(self, export_keys=(METRIC, LOCAL, FAKE), *args, **kwargs):
         super(IGPGraph, self).__init__(*args, **kwargs)
+        self._export_keys = export_keys
 
     def draw(self, dest):
         """Draw this graph to dest"""
@@ -210,7 +210,7 @@ class IGPGraph(nx.DiGraph):
         self.remove_nodes_from(nbunch)
 
     def _filter_edge_data(self, data):
-        return {n: data.get(n, False) for n in self.EXPORT_KEYS}
+        return {n: data.get(n, False) for n in self._export_keys}
 
     def export_edge_data(self, u, v):
         """Return the exportable properties of an edge"""
