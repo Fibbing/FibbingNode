@@ -13,6 +13,14 @@ from fibbingnode import CFG
 from fibbingnode import log
 
 
+def sanitize_edge_data(d):
+    """Because json.decode() does not set all types back ..."""
+    try:
+        d['metric'] = int(d['metric'])
+    except KeyError:
+        pass
+
+
 class SouthboundListener(ShapeshifterProxy):
     """This basic controller maintains a structure describing the IGP topology
     and listens for changes."""
@@ -40,6 +48,8 @@ class SouthboundListener(ShapeshifterProxy):
     def bootstrap_graph(self, graph, node_properties):
         self.igp_graph.clear()
         self.igp_graph.add_edges_from(graph)
+        for _, _, d in self.igp_graph.edges_iter(data=True):
+            sanitize_edge_data(d)
         self.update_node_properties(**node_properties)
         log.debug('Bootstrapped graph with edges: %s and properties: %s',
                   self.igp_graph.edges(data=True), node_properties)
@@ -52,6 +62,7 @@ class SouthboundListener(ShapeshifterProxy):
         pass
 
     def add_edge(self, source, destination, properties={'metric': 1}):
+        properties = sanitize_edge_data(properties)
         # metric is added twice to support backward-compat.
         self.igp_graph.add_edge(source, destination, properties)
         log.debug('Added edge: %s-%s@%s', source, destination, properties)
