@@ -4,7 +4,6 @@ import logging
 import sys
 import subprocess
 import argparse
-import os
 import datetime
 from fibbing import FibbingManager
 import fibbingnode
