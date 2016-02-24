@@ -103,10 +103,12 @@ class QuaggaRouter(object):
     def create_ospf_conf(self, confignode):
         self.render(OSPF_CFG_TEMPLATE, self.ospf_cfg, node=confignode)
 
-    def call(self, *args, **kwargs):
+    @staticmethod
+    def call(*args, **kwargs):
         return subprocess.call(args, **kwargs)
 
-    def pipe(self, *args, **kwargs):
+    @staticmethod
+    def pipe(*args, **kwargs):
         return subprocess.Popen(args,
                                 stdin=subprocess.PIPE,
                                 stdout=subprocess.PIPE,
