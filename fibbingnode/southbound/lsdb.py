@@ -504,10 +504,10 @@ class LSDB(object):
                    2. Right shift to remove host bits
                    3. Mask with controller mask
                 """
-                id = (((int(addr) - int(self.BASE_NET.network_address)) >>
-                       self.BASE_NET.max_prefixlen - controller_prefix) &
-                      ((1 << controller_prefix) - 1))
-                self.controllers[id].append(ip)
+                cid = (((int(addr) - int(self.BASE_NET.network_address)) >>
+                        self.BASE_NET.max_prefixlen - controller_prefix) &
+                       ((1 << controller_prefix) - 1))
+                self.controllers[cid].append(ip)
         # Contract them on the graph
         for id, ips in self.controllers.iteritems():
             cname = 'C_%s' % id
