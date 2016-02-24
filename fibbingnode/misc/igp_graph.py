@@ -7,6 +7,8 @@ from fibbingnode import log
 # The draw_graph call will be remapped to 'nothing' if matplotlib (aka extra
 # packages) is not available
 try:
+    import matplotlib
+    matplotlib.use('PDF')
     import matplotlib.pyplot as plt
 except ImportError:
     log.warning('Missing packages to draw the network, disabling the fonction')
