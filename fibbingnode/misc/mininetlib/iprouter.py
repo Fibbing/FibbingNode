@@ -121,9 +121,6 @@ class MininetRouterConfig(RouterConfigDict):
                                       action='permit',
                                       prefix=router.private_net,
                                       ge=plen + 1)]
-                          # ConfigDict(name='PRIVATE',
-                          #             action='deny',
-                          #             prefix='any')]
         cfg.routemaps = [ConfigDict(name='IMPORT',
                                     action='deny',
                                     prio='10',
