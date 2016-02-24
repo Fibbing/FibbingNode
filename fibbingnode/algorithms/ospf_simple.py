@@ -37,7 +37,7 @@ class OSPFSimple(object):
         for u, v in dag.edges_iter():
             try:
                 self.igp_graph[u][v]
-            except:
+            except KeyError:
                 logger.error('Cannot satisfy the DAG for dest %s '
                              ' as (%s, %s) is not in the IGP graph',
                              dest, u, v)
