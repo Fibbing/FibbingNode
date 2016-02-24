@@ -321,7 +321,8 @@ class LSDB(object):
 
     def __init__(self):
         self.BASE_NET = ip_network(CFG.get(DEFAULTSECT, 'base_net'))
-        self.private_addresses = PrivateAddressStore()
+        self.private_addresses = PrivateAddressStore(CFG.get(DEFAULTSECT,
+                                                             'private_ips'))
         self.last_line = ''
         self.leader_watchdog = None
         self.transaction = None
@@ -413,7 +414,7 @@ class LSDB(object):
             return edge[key]
         except KeyError:
             log.error('%s not found in the properties of edge %s-%s '
-                      'when resolving forwarding address of (%s,%s)\n%s',
+                      'when resolving forwarding address of (%s, %s)\n%s',
                       key, u, v, src, dst, edge)
             return None
 
@@ -551,12 +552,15 @@ class LSDB(object):
 
     def apply_secondary_addresses(self, graph):
         for ids in self.private_addresses.bdomains():
+            log.error('bdmain: %(ids)s', locals())
             for src, dst in permutations(ids, 2):
+                log.error('Assigning %(src)s--%(dst)', locals())
                 try:
                     graph[src][dst]['dst_address'] = self.private_addresses\
-                                                     .addresses_of(dst)
+                                                     .addresses_of(dst, src)
                 except KeyError:
-                    # The nodes are (not yet) on the graph
+                    log.debug('%(src)-%(dst)s does not yet exists on the graph'
+                              ', ignoring private addresses.', locals())
                     pass
 
 
@@ -584,31 +588,34 @@ class PrivateAddressStore(object):
     """A wrapper to serve as database to help cope with the private addresses
     madness"""
 
-    def __init__(self):
+    def __init__(self, filename):
         (self._address_bindings,
          self._bdomains,
-         self._domainkeys) = self.__read_private_ips()
+         self._domainkeys) = self.__read_private_ips(filename)
 
-    def __read_private_ips(self):
-        router_private_address = defaultdict(list)
+    def __read_private_ips(self, filename):
+        router_private_address = defaultdict(dict)
         ip_to_bd = defaultdict(list)
         keys = []
         try:
-            with open(CFG.get(DEFAULTSECT, 'private_ips'), 'r') as f:
+            with open(filename, 'r') as f:
                 private_address_binding = json.load(f)
                 for subnets in private_address_binding.itervalues():
-                    sub = []
+                    # Log router id in broadcast domain
+                    sub = subnets.keys()
+                    keys.append(subnets[sub[0]][0])
                     for rid, ip in subnets.iteritems():
-                        # Log router id in broadcast domain
-                        sub.append(rid)
                         # Enable single private address as string
                         if not is_container(ip):
                             ip = [ip]
-                        router_private_address[rid].extend(ip)
-                        keys.extend(ip[0])
+                        # Log private addresses adjacencies
+                        other = sub[:]
+                        other.remove(rid)
+                        for s in other:
+                            router_private_address[rid][s] = ip
                         for i in ip:
                             # Register the broadcast domain for each ip
-                            ip_to_bd[i] = sub
+                            ip_to_bd[i] = other
         except ValueError as e:
             log.error('Incorrect private IP addresses binding file')
             log.error(str(e))
@@ -617,15 +624,32 @@ class PrivateAddressStore(object):
             keys.clear()
         return router_private_address, ip_to_bd, keys
 
-    def addresses_of(self, rid):
-        """Return the list of private ip addresses for router id"""
-        return self._address_bindings[rid]
+    def addresses_of(self, rid, f=None):
+        """Return the list of private ip addresses for router id if f is None,
+        else the list of forwarding addresses from f to rid"""
+        try:
+            return ([i for l in self._address_bindings[rid].itervalues()
+                     for i in l]
+                    if not f
+                    else self._address_bindings[rid][f])
+
+        except KeyError:
+            raise ValueError('No private address for %s from %s' % (rid, f))
 
     def targets_for(self, ip):
         """Return the list of router ids able to reach the given private ip"""
-        return self._bdomains[ip]
+        try:
+            return self._bdomains[ip]
+        except KeyError:
+            raise ValueError('No such private IP %s' % ip)
 
     def bdomains(self):
         """Iterates over all private broadcast domains"""
         for i in self._domainkeys:
-            yield self.targets_for(i)
+            domain = [i]
+            domain.extend(self.targets_for(i))
+            yield domain
+
+    def __repr__(self):
+        return 'domainkeys: %s\nbindings: %s\nbdomains: %s' %\
+               (self._domainkeys, self._address_bindings, self._bdomains)
