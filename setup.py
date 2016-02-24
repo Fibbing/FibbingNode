@@ -32,6 +32,7 @@ setup(
         'py2-ipaddress'
     ],
     extras_require={
-        'draw': ['matplotlib']
+        'draw': ['matplotlib'],
+        'tests': ['pytest']
     }
 )

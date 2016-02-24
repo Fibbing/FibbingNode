@@ -39,7 +39,7 @@ quagga() {
 
 fibbing() {
     cd ${DIR}
-    pip install -e "."
+    pip install -e ".[draw, tests]"
     cd ${CWD}
 }
 
