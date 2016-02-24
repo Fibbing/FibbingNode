@@ -338,12 +338,13 @@ class FakeNodeProxyImplem(FakeNodeProxy):
     def remove(self, points):
         self.mngr.proxy_remove(self._get_point_list(points, 4))
 
-    def _get_point_list(self, points, tuple_len):
+    @staticmethod
+    def _get_point_list(points, tuple_len):
         if not points:
             return []
-        if not type(points) == list:
+        if not isinstance(points, list):
             raise Exception('points must be a list!')
-        if not type(points[0]) == list:
+        if not isinstance(points[0], list):
             if len(points) == tuple_len:
                 return [points]
             else:
