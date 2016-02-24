@@ -119,7 +119,7 @@ class Merger(object):
         """Return whether there exists a path between s and d"""
         try:
             return bool(self.path(s, d))
-        except:
+        except KeyError:
             return False
 
     def cost(self, src, dst):
