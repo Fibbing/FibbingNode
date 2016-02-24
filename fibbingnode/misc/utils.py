@@ -70,10 +70,9 @@ def dump_threads():
     """
     Shouldn't be used except for debugging purpose (e.g. find deadlocks)
     """
-    import sys
     import traceback
 
-    print >> sys.stderr, "\n*** STACKTRACE - START ***\n"
+    log.error("*** STACKTRACE - START ***")
     code = []
     for threadId, stack in sys._current_frames().items():
         code.append("\n# ThreadID: %s" % threadId)
@@ -84,8 +83,8 @@ def dump_threads():
                 code.append("  %s" % (line.strip()))
 
     for line in code:
-        print >> sys.stderr, line
-    print >> sys.stderr, "\n*** STACKTRACE - END ***\n"
+        log.error(line.strip('\n'))
+    log.error("*** STACKTRACE - END ***")
 
 
 def read_pid(n):
