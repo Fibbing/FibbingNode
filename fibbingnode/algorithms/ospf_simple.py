@@ -8,7 +8,8 @@ class OSPFSimple(object):
     def __init__(self):
         self.new_edge_metric = 10e4
 
-    def add_dest_to_graphs(self, dest, dag):
+    @staticmethod
+    def add_dest_to_graphs(dest, dag):
         if dest not in dag:
             for node in ssu.find_sink(dag):
                 logger.info('Connected %s to %s in the DAG', node, dest)
