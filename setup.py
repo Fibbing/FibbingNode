@@ -33,6 +33,7 @@ setup(
     ],
     extras_require={
         'draw': ['matplotlib'],
-        'tests': ['pytest']
-    }
+    },
+    tests_require=['pytest'],
+    setup_requires=['pytest-runner']
 )
