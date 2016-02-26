@@ -1,6 +1,9 @@
 """This module provides a structure to represent an IGP topology"""
 import os
+import sys
+import heapq
 import networkx as nx
+from itertools import count
 
 from fibbingnode import log
 from fibbingnode.misc.utils import extend_paths_list, is_container
@@ -110,6 +113,10 @@ class IGPGraph(nx.DiGraph):
         """Return whether n is a prefix or not"""
         return self._is_x(n, 'prefix')
 
+    def is_router_link(self, u, v):
+        """Return wether a given edge is a link between two routers"""
+        return self.is_router(u) and self.is_router(v) and v in self[u]
+
     def is_route(self, _, v):
         """Return whether edge _,v is a route"""
         return self._is_x(v, 'prefix')
@@ -196,6 +203,11 @@ class IGPGraph(nx.DiGraph):
         """Returns a generator over all global lies in the graph"""
         return self._get_all_edges(self.is_global_lie)
 
+    @property
+    def router_links(self):
+        """Return a generator over all intra-router links"""
+        return self._get_all_edges(self.is_router_link)
+
     def metric(self, u, v, m=None):
         """Return the link metric for link u->v, or set it if m is not None"""
         if m:
@@ -222,3 +234,93 @@ class IGPGraph(nx.DiGraph):
         for u, v, d in self.edges_iter(data=True):
             export_data = self._filter_edge_data(d)
             yield u, v, export_data
+
+
+class ShortestPath(object):
+    """A class storing shortest-path trees"""
+    def __init__(self, graph):
+        self._default_paths = {}
+        self._default_dist = {}
+        # Calculate non-fibbed Dijkstra
+        for n in graph.nodes_iter():
+            (self._default_paths[n],
+             self._default_dist[n]) = self.__default_spt_for_src(graph, n)
+        # We do not Fib all destinations, re-use pre-computed ones
+        fibbed_dst = set(v for _, v in graph.fake_routes())
+        pure_dst = set(n for n in graph.nodes_iter()
+                       if n not in fibbed_dst)
+        self._paths = {n: [p[:] for p in self._default_paths[n]]
+                       for n in pure_dst}
+        self._dist = {n: self._default_dist[n]
+                      for n in pure_dst}
+        # Compute the Fibbed paths
+        for n in fibbed_dst:
+            (self._paths[n],
+             self._dist[n]) = self.__fibbed_spt_for_src(graph, n)
+
+    @staticmethod
+    def __spt_for_src(g, source):
+        # Adapted from single_source_dijkstra in networkx
+        dist = {}  # dictionary of final distances
+        paths = {source: [[source]]}  # dictionary of list of paths
+        seen = {source: 0}
+        fringe = []
+        c = count()  # We want to skip comparing node labels
+        fake_edges = []
+        heapq.heappush(fringe, (0, next(c), source))
+        while fringe:
+            (d, _, v) = heapq.heappop(fringe)
+            if v in dist:
+                continue  # already searched this node.
+            dist[v] = d
+            for w, edgedata in g[v].iteritems():
+                if g.is_fake_route(v, w):
+                    # Deal with fake edges at a later stage
+                    fake_edges.append((v, w))
+                    continue
+                vw_dist = d + edgedata.get(METRIC, 1)
+                seen_w = seen.get(w, sys.maxint)
+                if vw_dist < dist.get(w, 0):
+                    raise ValueError('Contradictory paths found: '
+                                     'negative metric?')
+                elif vw_dist < seen_w:  # vw is better than the old path
+                    seen[w] = vw_dist
+                    heapq.heappush(fringe, (vw_dist, next(c), w))
+                    paths[w] = list(extend_paths_list(paths[v], w))
+                elif vw_dist == seen_w:  # vw is ECMP
+                    paths[w].extend(extend_paths_list(paths[v], w))
+                # else w is already pushed in the fringe and will pop later
+        fibbed_paths = {k: [p[:] for p in v] for k, v in paths.iteritems()}
+        fibbed_dist = dist.copy()
+        # TODO
+        return paths, dist, fibbed_paths, fibbed_dist
+
+    @staticmethod
+    def __fibbed_spt_for_src(g, source):
+        pass
+
+    @staticmethod
+    def _get(d, u, v=None):
+        return d[u][v] if v else d[u]
+
+    def fibbed_path(self, u, v=None):
+        """Return the path, as seen by the routers, between u and v,
+        or a dictionary of all shortest-paths starting at u if v is None"""
+        return self._get(self._paths, u, v)
+
+    def fibbed_cost(self, u, v=None):
+        """Return the cost of the fibbed path between u and v,
+        or a dict of cost of all shortest-paths starting at u"""
+        return self._get(self._dist, u, v)
+
+    def default_path(self, u, v=None):
+        """Return the paths of the pure IGP shortest path if Fibbing was not in
+        use on the current network, between u an v or a dict of paths if v is
+        None"""
+        return self._get(self._default_paths, u, v)
+
+    def default_cost(self, u, v=None):
+        """Return the cost of the pure IGP shortest path if Fibbing was not in
+        use on the current network, between u and v or a dict of cost if v
+        is None"""
+        return self._get(self._default_dist, u, v)

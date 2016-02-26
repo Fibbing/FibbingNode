@@ -1,7 +1,7 @@
 from Queue import Queue, Empty
 from abc import abstractmethod
 from collections import defaultdict
-from itertools import chain, permutations
+from itertools import chain
 import functools
 from threading import Thread
 import json
@@ -551,17 +551,14 @@ class LSDB(object):
             getattr(i, funcname)(*args, **kwargs)
 
     def apply_secondary_addresses(self, graph):
-        for ids in self.private_addresses.bdomains():
-            log.error('bdmain: %(ids)s', locals())
-            for src, dst in permutations(ids, 2):
-                log.error('Assigning %(src)s--%(dst)', locals())
-                try:
-                    graph[src][dst]['dst_address'] = self.private_addresses\
-                                                     .addresses_of(dst, src)
-                except KeyError:
-                    log.debug('%(src)-%(dst)s does not yet exists on the graph'
-                              ', ignoring private addresses.', locals())
-                    pass
+        for src, dst in graph.router_links:
+            try:
+                graph[src][dst]['dst_address'] = self.private_addresses\
+                                                .addresses_of(dst, src)
+            except KeyError:
+                log.debug('%(src)-%(dst)s does not yet exists on the graph'
+                          ', ignoring private addresses.', locals())
+                pass
 
 
 class Transaction(object):
@@ -590,20 +587,17 @@ class PrivateAddressStore(object):
 
     def __init__(self, filename):
         (self._address_bindings,
-         self._bdomains,
-         self._domainkeys) = self.__read_private_ips(filename)
+         self._bdomains) = self.__read_private_ips(filename)
 
     def __read_private_ips(self, filename):
         router_private_address = defaultdict(dict)
         ip_to_bd = defaultdict(list)
-        keys = []
         try:
             with open(filename, 'r') as f:
                 private_address_binding = json.load(f)
                 for subnets in private_address_binding.itervalues():
                     # Log router id in broadcast domain
                     sub = subnets.keys()
-                    keys.append(subnets[sub[0]][0])
                     for rid, ip in subnets.iteritems():
                         # Enable single private address as string
                         if not is_container(ip):
@@ -621,8 +615,7 @@ class PrivateAddressStore(object):
             log.error(str(e))
             ip_to_bd.clear()
             router_private_address.clear()
-            keys.clear()
-        return router_private_address, ip_to_bd, keys
+        return router_private_address, ip_to_bd
 
     def addresses_of(self, rid, f=None):
         """Return the list of private ip addresses for router id if f is None,
@@ -632,7 +625,6 @@ class PrivateAddressStore(object):
                      for i in l]
                     if not f
                     else self._address_bindings[rid][f])
-
         except KeyError:
             raise ValueError('No private address for %s from %s' % (rid, f))
 
@@ -643,13 +635,6 @@ class PrivateAddressStore(object):
         except KeyError:
             raise ValueError('No such private IP %s' % ip)
 
-    def bdomains(self):
-        """Iterates over all private broadcast domains"""
-        for i in self._domainkeys:
-            domain = [i]
-            domain.extend(self.targets_for(i))
-            yield domain
-
     def __repr__(self):
-        return 'domainkeys: %s\nbindings: %s\nbdomains: %s' %\
-               (self._domainkeys, self._address_bindings, self._bdomains)
+        return 'bindings: %s\nbdomains: %s' %\
+               (self._address_bindings, self._bdomains)

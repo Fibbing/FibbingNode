@@ -39,9 +39,6 @@ def same_lists(x, y):
 
 def test_simple(simple_address_file):
     store, d = simple_address_file
-    print repr(store)
-    # keys in the json are the broadcast domains net mask
-    assert len(list(store.bdomains())) == len(d.keys())
     # sample queries
     assert same_lists(store.targets_for('10.223.255.253/30'),
                       ['192.168.239.254'])
