@@ -1,8 +1,9 @@
 from cmd import Cmd
 import logging
+import time
 from threading import Thread
 from fibbingnode import log
-from fibbingnode.southbound.sjmp import SJMPClient, SJMPServer, ProxyCloner
+from fibbingnode.misc.sjmp import SJMPClient, SJMPServer, ProxyCloner
 
 H = 'localhost'
 P = 12345
@@ -37,7 +38,8 @@ class TestCLI(Cmd):
 
     def do_sum(self, line):
         a, b = line.split(' ')
-        # Invoke a sum method on the remote end, with 2 parameters, named and unnamed
+        # Invoke a sum method on the remote end, with 2 parameters,
+        # named and unnamed
         self.client.execute('sum', a, b=b)
 
     def do_exit(self, line):
@@ -57,8 +59,14 @@ if __name__ == '__main__':
     c = SJMPClient(H, P)
     a = ProxyCloner(EchoProxy, c)
     log.debug(dir(a))
-    Thread(target=s.communicate, name='server').start()
-    Thread(target=c.communicate, name='client').start()
+    st = Thread(target=s.communicate, name='server')
+    st.daemon = True
+    st.start()
+    log.debug('Started server')
+    ct = Thread(target=c.communicate, name='client')
+    ct.daemon = True
+    ct.start()
+    log.debug('Started client')
     a.echo('hello world')
     a.sum(1, 2)
     TestCLI(c).cmdloop()

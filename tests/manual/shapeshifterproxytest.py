@@ -3,7 +3,7 @@ from cmd import Cmd
 import logging
 from threading import Thread
 from fibbingnode import CFG, log
-from fibbingnode.southbound.sjmp import SJMPClient, ProxyCloner
+from fibbingnode.misc.sjmp import SJMPClient, ProxyCloner
 from networkx import DiGraph
 from fibbingnode.southbound.interface import ShapeshifterProxy, FakeNodeProxy
 
@@ -43,7 +43,7 @@ class TestCLI(Cmd):
         self.client.remove(('192.168.14.1', '192.168.23.2', '3.3.3.0/24'))
         self.client.remove((None, '192.168.23.2', '4.4.4.0/24'))
         self.client.remove([(None, '192.168.23.2', '5.5.5.0/24'),
-                         (None, '192.168.14.1', '5.5.5.0/24')])
+                            (None, '192.168.14.1', '5.5.5.0/24')])
 
     def do_exit(self, line):
             return True
@@ -51,7 +51,9 @@ class TestCLI(Cmd):
 if __name__ == '__main__':
     log.setLevel(logging.DEBUG)
     shapeshifter = ShapeshifterProxyTest()
-    c = SJMPClient("localhost", CFG.getint(DEFAULTSECT, "json_port"), target=shapeshifter)
+    c = SJMPClient("localhost",
+                   CFG.getint(DEFAULTSECT, "json_port"),
+                   target=shapeshifter)
     fakenode = ProxyCloner(FakeNodeProxy, c)
     Thread(target=c.communicate, name='client').start()
     TestCLI(fakenode).cmdloop()

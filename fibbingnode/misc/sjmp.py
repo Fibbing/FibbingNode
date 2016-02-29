@@ -267,10 +267,12 @@ class SJMPServer():
 def _new_server_client(sock, invoke, target):
     log.debug('New SJMP client')
     sjmp = SimpleJSONMessagePassing(sock, target=target)
-    invoke(sjmp)
+    if invoke:
+        invoke(sjmp)
     sjmp.communicate()
     sock.close()
-    invoke(sjmp)
+    if invoke:
+        invoke(sjmp)
     log.debug('Closed connection to an SJMP client')
 
 
