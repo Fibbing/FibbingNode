@@ -1,10 +1,12 @@
 import utils as ssu
-import fibbingnode
 import sys
 import abc
 import collections
 import itertools
 import logging
+
+import fibbingnode
+from fibbingnode.misc.igp_graph import ShortestPath, add_dest_to_graph
 
 
 log = fibbingnode.log
@@ -66,21 +68,20 @@ class Merger(object):
     def solve(self, graph, requirements):
         """Compute the augmented topology for a given graph and a set of
         requirements.
-        :type graph: DiGraph
-        :type requirements: { dest: DiGraph }
+        :type graph: IGPGraph
+        :type requirements: { dest: IGPGraph }
         :param requirements: the set of requirement DAG on a per dest. basis
         :return: list of fake LSAs"""
         self.reqs = requirements
         log.info('Preparing IGP graph')
         self.g = prepare_graph(graph, requirements)
         log.info('Computing SPT')
-        self._p = ssu.all_shortest_paths(self.g)
+        self._p = ShortestPath(graph)
         lsa = []
         for dest, dag in requirements.iteritems():
+            self.dest, self.dag = dest, dag
             self.ecmp.clear()
             log.info('Evaluating requirement %s', dest)
-            self.dest = dest
-            self.dag = dag
             log.info('Ensuring the consistency of the DAG')
             self.check_dest()
             self.complete_dag()
@@ -88,7 +89,7 @@ class Merger(object):
             for n, node in self.nodes():
                 node.forced_nhs = set(self.dag.successors(n))
                 node.original_nhs = set([p[1] for p in
-                                         self.path(n, self.dest)])
+                                         self._p.default_path(n, self.dest)])
             if not self.check_consistency():
                 log.warning('Consistency check failed, skipping %s', dest)
                 continue
@@ -111,79 +112,20 @@ class Merger(object):
     # Implementation section
     #
 
-    def path(self, src, dst):
-        """Return the list of shortest paths between src and dst"""
-        return self._p[src][0][dst]
-
-    def has_path(self, s, d):
-        """Return whether there exists a path between s and d"""
-        try:
-            return bool(self.path(s, d))
-        except KeyError:
-            return False
-
-    def cost(self, src, dst):
-        """Return the cost of the shortest paths between src and dst"""
-        return self._p[src][1][dst]
-
-    def register_path(self, src, dst, path, cost):
-        """Register a shortest path between src and dst, with a given cost.
-        path is the set of paths between src and dst"""
-        try:
-            src_tuple = self._p[src]
-            src_tuple[1][dst] = cost
-            src_tuple[0][dst] = path
-        except KeyError:
-            log.debug('Registering a new src %s for paths %s', src, path)
-            self._p[src] = ({dst: path}, cost)
+    @staticmethod
+    def __new_dest():
+        return {'data': Node()}
 
     def check_dest(self):
         """Check that the destination is present in the DAG and the graph"""
-        dest_in_graph = self.dest in self.g
-        log.debug('Checking for %s in the graph: %s', self.dest, dest_in_graph)
-        if not dest_in_graph:
-            log.info('Adding %s in the graph', self.dest)
-            self.g.add_node(self.dest, data=Node())
-            new_paths = {}
-            new_paths_cost = {n: sys.maxint for n in self.g.nodes_iter()}
-        dest_in_dag = self.dest in self.dag
-        log.debug('Checking for the presence of %s the the DAG: %s',
-                  self.dest, dest_in_dag)
-        if not dest_in_dag or not dest_in_graph:
-            if not dest_in_dag:
-                sinks = ssu.find_sink(self.dag)
-            else:
-                sinks = self.dag.predecessors(self.dest)
-            for s in sinks:
-                if not dest_in_dag:
-                    log.info('Adding %s to %s in the dag', self.dest, s)
-                    self.dag.add_edge(s, self.dest)
-                if not dest_in_graph:
-                    log.info('Adding edge (%s, %s) in the graph',
-                             s, self.dest)
-                    self.g.add_edge(s, self.dest, metric=self.new_edge_metric)
-                    log.debug('Updating spt/cost accordingly')
-                    for n in self.g.nodes_iter():
-                        if n == self.dest:
-                            new_paths[n] = [[n]]
-                            new_paths_cost[n] = 0
-                            continue
-                        if not self.has_path(n, s):
-                            continue
-                        ns_cost = self.cost(n, s) + self.new_edge_metric
-                        if ns_cost < new_paths_cost[n]:  # Created a new SP
-                            ns_path = self.path(n, s)
-                            new_paths_cost[n] = ns_cost
-                            new_paths[n] = list(ssu.extend_paths_list(ns_path,
-                                                                      self.dest
-                                                                      ))
-                        elif ns_cost == new_paths_cost:  # Created ECMP
-                            ns_path = self.path(n, s)
-                            new_paths[n].extend(ssu.extend_paths_list(ns_path,
-                                                                      self.dest
-                                                                      ))
-        for n, p in new_paths.iteritems():  # Incrementally update the SPT
-            self.register_path(n, self.dest, p, new_paths_cost[n])
+        log.debug('Checking dest in dag')
+        add_dest_to_graph(self.dest, self.dag)
+        log.debug('Checking dest in graph')
+        add_dest_to_graph(self.dest, self.g,
+                          edges_src=self.dag.predecessors,
+                          spt=self._p,
+                          metric=self.new_edge_metric,
+                          node_data_gen=self.__new_dest)
 
     def check_consistency(self):
         """Checks that the DAG can be embedded in the graph"""
@@ -213,7 +155,7 @@ class Merger(object):
                 self.ecmp[n].add(n)
             else:
                 f = []
-                paths = self.paths(n, self.dest)
+                paths = self._p.default_path(n, self.dest)
                 for p in paths:
                     # Try to find the first fake node for each path
                     for h in p[:-1]:
@@ -268,7 +210,7 @@ class Merger(object):
                 log.debug('Not considering %s for initial LB of %s as '
                           '%s->%s exists in the DAG', nei, node, nei, node)
                 continue
-            nei_dest_paths = self.path(nei, self.dest)
+            nei_dest_paths = self._p.default_path(nei, self.dest)
             if not nei_dest_paths:
                 log.debug('Not considering %s for initial LB of %s as '
                           'it has no path to the destination', nei, node)
@@ -300,7 +242,8 @@ class Merger(object):
                           'it does not have a path to the destination without '
                           'the presence of fake nodes.', nei, node)
                 continue
-            nei_lb = self.cost(nei, self.dest) - self.cost(nei, node)
+            nei_lb = (self._p.default_cost(nei, self.dest) -
+                      self._p.default_cost(nei, node))
             if nei_lb > lb:
                 lb = nei_lb
                 log.debug('Initial LB of %s set to %s by %s',
@@ -309,7 +252,7 @@ class Merger(object):
 
     def compute_initial_ub(self):
         for n, node in self.nodes(Node.GLOBAL):
-            node.ub = self.cost(n, self.dest)
+            node.ub = self._p.default_cost(n, self.dest)
             log.debug('Initial ub of %s set to %s', n, node.ub)
 
     def propagate_lb(self, assign=Node.increase_lb, fail_func=Node.setlocal,
@@ -399,13 +342,15 @@ class Merger(object):
     def get_delta(self, n):
         """Return the delta value associated to that node,
         that is the potential it has to influence another fakenode lb."""
-        links_to_fn = [self.cost(n, nei) for nei, _ in self.fake_neighbors(n)]
+        links_to_fn = [self._p.default_cost(n, nei)
+                       for nei, _ in self.fake_neighbors(n)]
         return (self.node(n).lb - min(links_to_fn)) if links_to_fn else 0
 
     def inherit_lb(self, node, from_node, fixed_neighbors):
         """Return the LB to set on node based on the one from from_node"""
         lb_base = self.node(from_node).lb
-        lb = max(map(lambda n: (self.cost(from_node, n) - self.cost(n, node) +
+        lb = max(map(lambda n: (self._p.default_cost(from_node, n) -
+                                self._p.default_cost(n, node) +
                                 (1 if not self.dag_include_spt(n, node)
                                  else 0)),
                      itertools.chain([from_node], fixed_neighbors)))
@@ -440,7 +385,7 @@ class Merger(object):
 
     def dag_include_spt(self, n, s):
         """Check if all SP from n to s in the graph are also in the DAG"""
-        for p in self.path(n, s):
+        for p in self._p.default_path(n, s):
             for u, v in zip(p[:-1], p[1:]):
                 if not self.dag.has_edge(u, v):
                     log.debug('(%s, %s) is in the SP set of %s->%s '
@@ -455,7 +400,7 @@ class Merger(object):
     def combine_ranges(self, n, s):
         """Attempt to combine the lb,ub interval between the two nodes"""
         node, succ = self.node(n), self.node(s)
-        cost = self.cost(n, s)
+        cost = self._p.default_cost(n, s)
         new_ub = min(node.ub - cost, succ.ub)
         new_lb = max(node.lb - cost, succ.lb)
         # Log these errors which should never happen
@@ -509,7 +454,8 @@ class Merger(object):
 
         # Update the values in its successor
         succ_node = self.node(s)
-        path_cost_increase = self.cost(n, s) + succ_node.lb - node.lb
+        path_cost_increase = (self._p.default_cost(n, s) +
+                              succ_node.lb - node.lb)
         record_undo(setattr, succ_node, 'lb', succ_node.lb)
         record_undo(setattr, succ_node, 'ub', succ_node.ub)
         succ_node.lb = lb
@@ -622,7 +568,7 @@ class Merger(object):
         for n in self.g:
             if n in self.dag or n in self.reqs:
                 continue  # n has its SPT instructions or is a destination node
-            for p in self.path(n, self.dest):
+            for p in self._p.default_path(n, self.dest):
                 for u, v in zip(p[:-1], p[1:]):
                     v_in_dag = v in self.dag
                     self.dag.add_edge(u, v)
