@@ -19,6 +19,7 @@ def sanitize_edge_data(d):
         d['metric'] = int(d['metric'])
     except KeyError:
         pass
+    return d
 
 
 class SouthboundListener(ShapeshifterProxy):
@@ -101,6 +102,7 @@ class SouthboundListener(ShapeshifterProxy):
             self.igp_graph.node[node].update(data)
         self.dirty = self.dirty or properties
 
+
 class SouthboundController(SouthboundListener):
     """A simple northbound controller that monitors for changes in the IGP
     graph, and keeps track of advertized LSAs to remove them on exit"""
@@ -151,6 +153,9 @@ class SouthboundController(SouthboundListener):
         """Refresh the set of LSAs that needs to be sent in the IGP,
         and instructs the southbound controller to update it if changed"""
         (to_add, to_rem) = self._get_diff_lsas()
+        if not (to_add or to_rem):
+            log.debug('Nothing to do for the current topology')
+            return
         if to_rem:
             self.remove_lsa(*to_rem)
         if to_add:

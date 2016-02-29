@@ -289,7 +289,7 @@ class ASExtLSA(LSA):
     def apply(self, graph, lsdb):
         for route in self.routes:
             fwd_addr = self.resolve_fwd_addr(route.fwd_addr)
-            if ip_address(self.routerid) in LSDB.BASE_NET:
+            if ip_address(self.routerid) in lsdb.BASE_NET:
                 try:
                     targets = lsdb.private_addresses.targets_for(fwd_addr)
                     method = functools.partial(graph.add_local_route,
@@ -316,8 +316,6 @@ class ASExtLSA(LSA):
 
 
 class LSDB(object):
-
-    BASE_NET = ip_network(CFG.get(DEFAULTSECT, 'base_net'))
 
     def __init__(self):
         self.BASE_NET = ip_network(CFG.get(DEFAULTSECT, 'base_net'))

@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import unittest
+import collections
 import fibbingnode.algorithms.merger as merger
 import fibbingnode.algorithms.utils as ssu
-import networkx as nx
-
+from fibbingnode.misc.igp_graph import IGPGraph
 from fibbingnode import log
 
-import collections
 
 #
 # Useful tip to selectively disable test: @unittest.skip('reason')
@@ -53,7 +52,7 @@ def check_fwd_dags(fwd_req, topo, lsas, solver):
     spt = ssu.all_shortest_paths(topo, metric='metric')
     for dest, req_dag in fwd_req.iteritems():
         log.info('Validating requirements for dest %s', dest)
-        dag = nx.DiGraph()
+        dag = IGPGraph()
         for n in filter(lambda n: n not in fwd_req, topo):
             if n in f_ids:
                 continue
@@ -120,7 +119,7 @@ class Gadgets():
         #    A2--B2--C2--D2
         #   /|   |   |   |
         #  D-A1--B1--C1--D1
-        self.parallel = g = nx.DiGraph()
+        self.parallel = g = IGPGraph()
         self._add_edge(g, 'D', 'A1', 2)
         self._add_edge(g, 'D', 'A2', 2)
         self._add_edge(g, 'B2', 'A2', 2)
@@ -140,7 +139,7 @@ class Gadgets():
         #   2       2       2
         #  /        |        \
         # A -- 4 -- B -- 2 -- C
-        self.weird = g = nx.DiGraph()
+        self.weird = g = IGPGraph()
         self._add_edge(g, 'A', 'B', 4)
         self._add_edge(g, 'B', 'C', 2)
         self._add_edge(g, 'D', 'C', 2)
@@ -160,7 +159,7 @@ class Gadgets():
         #  |        | /           |
         #  +--------A2------------+
         #
-        self.paper_gadget = g = nx.DiGraph()
+        self.paper_gadget = g = IGPGraph()
         self._add_edge(g, 'H1', 'A1', 19)
         self._add_edge(g, 'H1', 'X', 10)
         self._add_edge(g, 'A1', 'Y', 2)
@@ -179,7 +178,7 @@ class Gadgets():
         #   |                     |
         #  R2 -- 10  -- E2 -- 10 -+
 
-        self.trap = g = nx.DiGraph()
+        self.trap = g = IGPGraph()
         self._add_edge(g, 'R1', 'E1', metric=100)
         self._add_edge(g, 'R1', 'R2', metric=100)
         self._add_edge(g, 'R2', 'E2', metric=10)
@@ -187,7 +186,7 @@ class Gadgets():
         self._add_edge(g, 'E2', 'D', metric=10)
 
     def _setUpSquare(self):
-        self.square = g = nx.DiGraph()
+        self.square = g = IGPGraph()
         # T1  --10--  T2
         #  |    \       |
         #  10     5    100
@@ -215,7 +214,7 @@ class Gadgets():
         #  25 +--30----+          |
         #  | /                    |
         #  O -------- 10 ---------+
-        self.diamond = g = nx.DiGraph()
+        self.diamond = g = IGPGraph()
         self._add_edge(g, 'A', 'Y1', metric=5)
         self._add_edge(g, 'Y1', 'X', metric=10)
         self._add_edge(g, 'A', 'Y2', metric=10)
@@ -239,7 +238,7 @@ class Gadgets():
         #    6                   |
         #   /                    |
         #  A -------- 17 --------+
-        self.ddiamond = g = nx.DiGraph()
+        self.ddiamond = g = IGPGraph()
         self._add_edge(g, 'H1', 'D', metric=19)
         self._add_edge(g, 'H1', 'Y1', metric=10)
         self._add_edge(g, 'Y1', 'X', metric=5)
@@ -269,55 +268,55 @@ class MergerTestCase(unittest.TestCase):
     def testTrapezoid(self):
         log.warning('Testing Trapezoid')
         self._test(self.gadgets.trap,
-                   {'1_8': nx.DiGraph([('R1', 'R2'),
-                                       ('R2', 'E2'),
-                                       ('E2', 'D')])},
+                   {'1_8': IGPGraph([('R1', 'R2'),
+                                     ('R2', 'E2'),
+                                     ('E2', 'D')])},
                    1)
 
     # @unittest.skip('passing')
     def testTrapezoidWithEcmp(self):
         log.warning('Testing TrapezoidWithEcmp')
         self._test(self.gadgets.trap,
-                   {'2_8': nx.DiGraph([('R1', 'R2'),
-                                       ('R2', 'E2'),
-                                       ('E2', 'D'),
-                                       # ECMP on E1
-                                       ('E1', 'D'),
-                                       ('E1', 'R1')])},
+                   {'2_8': IGPGraph([('R1', 'R2'),
+                                     ('R2', 'E2'),
+                                     ('E2', 'D'),
+                                     # ECMP on E1
+                                     ('E1', 'D'),
+                                     ('E1', 'R1')])},
                    3)
 
     # @unittest.skip('passing')
     def testDiamond(self):
         log.warning('Testing Diamond')
         self._test(self.gadgets.diamond,
-                   {'3_8': nx.DiGraph([('A', 'Y1'),
-                                       ('A', 'Y2'),
-                                       ('Y2', 'X'),
-                                       ('Y1', 'X'),
-                                       ('X', 'D'),
-                                       ('O', 'D')])},
+                   {'3_8': IGPGraph([('A', 'Y1'),
+                                     ('A', 'Y2'),
+                                     ('Y2', 'X'),
+                                     ('Y1', 'X'),
+                                     ('X', 'D'),
+                                     ('O', 'D')])},
                    2)
 
     # @unittest.skip('passing')
     def testSquareWithThreeConsecutiveChanges(self):
         log.warning('Testing SquareWithThreeConsecutiveChanges')
         self._test(self.gadgets.square,
-                   {'3_8': nx.DiGraph([('D2', 'B1'),
-                                       ('B1', 'T1'),
-                                       ('T1', 'T2'),
-                                       ('T2', 'B2'),
-                                       ('B2', 'D1')])},
+                   {'3_8': IGPGraph([('D2', 'B1'),
+                                     ('B1', 'T1'),
+                                     ('T1', 'T2'),
+                                     ('T2', 'B2'),
+                                     ('B2', 'D1')])},
                    3)
 
     # @unittest.skip('passing')
     def testSquareWithThreeConsecutiveChangesAndMultipleRequirements(self):
         log.warning('Testing SquareWithThreeConsecutiveChanges'
                     'AndMultipleRequirements')
-        dag = nx.DiGraph([('D2', 'B1'),
-                          ('B1', 'T1'),
-                          ('T1', 'T2'),
-                          ('T2', 'B2'),
-                          ('B2', 'D1')])
+        dag = IGPGraph([('D2', 'B1'),
+                        ('B1', 'T1'),
+                        ('T1', 'T2'),
+                        ('T2', 'B2'),
+                        ('B2', 'D1')])
         self._test(self.gadgets.square,
                    {'3_8': dag, '8_3': dag.reverse(copy=True)},
                    5)
@@ -326,47 +325,47 @@ class MergerTestCase(unittest.TestCase):
     def testPaperGadget(self):
         log.warning('Testing PaperGadget')
         self._test(self.gadgets.paper_gadget,
-                   {'3_8': nx.DiGraph([('H1', 'X'),
-                                       ('H2', 'X'),
-                                       ('H3', 'X'),
-                                       ('X', 'Y'),
-                                       ('A1', 'Y'),
-                                       ('A2', 'Y')])},
+                   {'3_8': IGPGraph([('H1', 'X'),
+                                     ('H2', 'X'),
+                                     ('H3', 'X'),
+                                     ('X', 'Y'),
+                                     ('A1', 'Y'),
+                                     ('A2', 'Y')])},
                    1)
 
     # @unittest.skip('passing')
     def testWeird(self):
         log.warning('Testing Weird')
         self._test(self.gadgets.weird,
-                   {'3_8': nx.DiGraph([('D', 'C'),
-                                       ('C', 'B'),
-                                       ('B', 'A')])},
+                   {'3_8': IGPGraph([('D', 'C'),
+                                     ('C', 'B'),
+                                     ('B', 'A')])},
                    2)
 
     # @unittest.skip('passing')
     def testParallel(self):
         log.warning('Testing Parallel')
         self._test(self.gadgets.parallel,
-                   {'3_8': nx.DiGraph([('A2', 'B2'),
-                                       ('B2', 'C2'),
-                                       ('C2', 'D2'),
-                                       ('D2', 'D1'),
-                                       ('D1', 'C1'),
-                                       ('C1', 'B1'),
-                                       ('B1', 'A1'),
-                                       ('A1', 'D')])},
+                   {'3_8': IGPGraph([('A2', 'B2'),
+                                     ('B2', 'C2'),
+                                     ('C2', 'D2'),
+                                     ('D2', 'D1'),
+                                     ('D1', 'C1'),
+                                     ('C1', 'B1'),
+                                     ('B1', 'A1'),
+                                     ('A1', 'D')])},
                    4)
 
     # @unittest.skip('passing')
     def testDoubleDiamond(self):
         log.warning('Testing DoubleDiamond')
         self._test(self.gadgets.ddiamond,
-                   {'1_8': nx.DiGraph([('H1', 'Y1'),
-                                       ('H1', 'Y2'),
-                                       ('Y1', 'X'),
-                                       ('Y2', 'X'),
-                                       ('H2', 'X'),
-                                       ('X', 'D')])},
+                   {'1_8': IGPGraph([('H1', 'Y1'),
+                                     ('H1', 'Y2'),
+                                     ('Y1', 'X'),
+                                     ('Y2', 'X'),
+                                     ('H2', 'X'),
+                                     ('X', 'D')])},
                    3)
 
 if __name__ == '__main__':

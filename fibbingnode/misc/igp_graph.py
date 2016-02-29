@@ -6,6 +6,7 @@ import networkx as nx
 from itertools import count
 
 from fibbingnode import log
+import fibbingnode.algorithms.utils as ssu
 from fibbingnode.misc.utils import extend_paths_list, is_container
 
 # The draw_graph call will be remapped to 'nothing' if matplotlib (aka extra
@@ -43,15 +44,15 @@ else:
 
 METRIC = 'metric'
 FAKE = 'fake'
-LOCAL = 'local'
+LOCAL = 'target'
 
 
 class IGPGraph(nx.DiGraph):
     """This class represents an IGP graph, and defines a few useful bindings"""
 
-    def __init__(self, export_keys=(METRIC, LOCAL, FAKE), *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super(IGPGraph, self).__init__(*args, **kwargs)
-        self._export_keys = export_keys
+        self._export_keys = (METRIC, LOCAL, FAKE)
 
     def draw(self, dest):
         """Draw this graph to dest"""
@@ -87,7 +88,7 @@ class IGPGraph(nx.DiGraph):
         """Add a fake local route available for specified targets"""
         if not is_container(targets):
             targets = [targets]
-        self.add_fake_route(router, prefix, local=True, target=targets, **kw)
+        self.add_fake_route(router, prefix, target=targets, **kw)
 
     def _is_x(self, n, x, val=True):
         try:
@@ -236,6 +237,41 @@ class IGPGraph(nx.DiGraph):
             yield u, v, export_data
 
 
+def add_dest_to_graph(dest, graph, edges_src=None, spt=None, **kw):
+    """Add dest to the graph, possibly updating the shortest paths object
+
+    :param dest: The destination node, will be set as a prefix
+    :param graph: The graph to which dest must be added if not present
+    :param edges_src: The source of edges to add in order to add dest,
+                    if None, defaults to the sinks in the graph,
+                    otherwise it is a function returning a list of edges
+                    and taking dest as argument
+    :param spt: The ShortestPath object to update to account for the new node
+                if applicable
+    :param kw: Extra parameters for the edges if any"""
+    if dest in graph:
+        log.debug('%s is already in the graph', dest)
+        return
+    if not edges_src:
+        added = []
+        sinks = ssu.find_sink(graph)
+        if not sinks:
+            log.info('No sinks found in the graph!')
+        for node in sinks:
+            log.info('Connected %s to %s in the graph', node, dest)
+            # TODO cleanup, atm. some places use DiGraph other IGPGraph ...
+            graph.add_node(dest, prefix=True)
+            graph.add_edge(node, dest, **kw)
+            added.append(node)
+    else:
+        added = edges_src(dest)
+        log.info('Adding edges sources %s to the graph', added)
+        graph.add_edges_from((s, dest) for s in added, **kw)
+    if added and spt:
+        log.info('Updating SPT')
+        spt.update_paths_towards(graph, dest, added)
+
+
 class ShortestPath(object):
     """A class storing shortest-path trees"""
     def __init__(self, graph):
@@ -246,7 +282,7 @@ class ShortestPath(object):
             (self._default_paths[n],
              self._default_dist[n]) = self.__default_spt_for_src(graph, n)
         # We do not Fib all destinations, re-use pre-computed ones
-        fibbed_dst = set(v for _, v in graph.fake_routes())
+        fibbed_dst = set(v for _, v in graph.fake_routes)
         pure_dst = set(n for n in graph.nodes_iter()
                        if n not in fibbed_dst)
         self._paths = {n: [p[:] for p in self._default_paths[n]]
@@ -259,14 +295,13 @@ class ShortestPath(object):
              self._dist[n]) = self.__fibbed_spt_for_src(graph, n)
 
     @staticmethod
-    def __spt_for_src(g, source):
+    def __default_spt_for_src(g, source):
         # Adapted from single_source_dijkstra in networkx
         dist = {}  # dictionary of final distances
         paths = {source: [[source]]}  # dictionary of list of paths
         seen = {source: 0}
         fringe = []
         c = count()  # We want to skip comparing node labels
-        fake_edges = []
         heapq.heappush(fringe, (0, next(c), source))
         while fringe:
             (d, _, v) = heapq.heappop(fringe)
@@ -276,7 +311,6 @@ class ShortestPath(object):
             for w, edgedata in g[v].iteritems():
                 if g.is_fake_route(v, w):
                     # Deal with fake edges at a later stage
-                    fake_edges.append((v, w))
                     continue
                 vw_dist = d + edgedata.get(METRIC, 1)
                 seen_w = seen.get(w, sys.maxint)
@@ -290,14 +324,13 @@ class ShortestPath(object):
                 elif vw_dist == seen_w:  # vw is ECMP
                     paths[w].extend(extend_paths_list(paths[v], w))
                 # else w is already pushed in the fringe and will pop later
-        fibbed_paths = {k: [p[:] for p in v] for k, v in paths.iteritems()}
-        fibbed_dist = dist.copy()
-        # TODO
-        return paths, dist, fibbed_paths, fibbed_dist
+        return paths, dist
 
     @staticmethod
     def __fibbed_spt_for_src(g, source):
-        pass
+        """Compute the actual used paths due to Fibbing.
+        ! the router to which a fake edge is attached does not use it"""
+        return None, None
 
     @staticmethod
     def _get(d, u, v=None):
@@ -324,3 +357,46 @@ class ShortestPath(object):
         use on the current network, between u and v or a dict of cost if v
         is None"""
         return self._get(self._default_dist, u, v)
+
+    def update_paths_towards(self, g, dest, added_edges):
+        """Update the shortest paths by adding some new edges towards a
+        destination
+        ! The destination should not be in the already existing SPT!
+        :param g: The graph
+        :param dest: The added destination
+        :param added_edges: The source of the added edges"""
+        self.__update_default_paths(g, dest, added_edges)
+        self.__update_fibbed_paths(g, dest, added_edges)
+
+    def __update_default_paths(self, g, dest, added):
+        for n in g.nodes_iter():
+            if n == dest:  # dest is a path in itself
+                self._default_paths[n] = [[n]]
+                self._default_dist[n] = {n: 0}
+                continue
+            paths = []
+            cost = sys.maxint
+            for s in added:
+                try:
+                    c = self.default_cost(n, s)
+                except KeyError:  # No path from s to n, skip
+                    continue
+                p = self.default_path(n, s)
+                if c < cost:  # new spt towards s is n-p-s
+                    paths = list(extend_paths_list(p, dest))
+                    cost = c
+                if c == cost:  # ecmp
+                    paths.extend(extend_paths_list(p, dest))
+            if paths:
+                log.debug('Adding paths: %s', paths)
+                self._default_paths[n][dest] = paths
+                self._default_dist[n][dest] = cost
+
+    def __update_fibbed_paths(self, g, dest, added):
+        pass
+
+    def __repr__(self):
+        return '\n'.join('%s -> %s: %s' % (src, dst, p)
+                         for src, d in self._default_paths.iteritems()
+                         for dst, paths in d.iteritems()
+                         for p in paths)
