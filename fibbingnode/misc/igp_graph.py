@@ -385,7 +385,7 @@ class ShortestPath(object):
                 if c < cost:  # new spt towards s is n-p-s
                     paths = list(extend_paths_list(p, dest))
                     cost = c
-                if c == cost:  # ecmp
+                elif c == cost:  # ecmp
                     paths.extend(extend_paths_list(p, dest))
             if paths:
                 log.debug('Adding paths: %s', paths)
