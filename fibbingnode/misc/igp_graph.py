@@ -237,46 +237,6 @@ class IGPGraph(nx.DiGraph):
             yield u, v, export_data
 
 
-def add_dest_to_graph(dest, graph, edges_src=None, spt=None,
-                      node_data_gen=None, **kw):
-    """Add dest to the graph, possibly updating the shortest paths object
-
-    :param dest: The destination node, will be set as a prefix
-    :param graph: The graph to which dest must be added if not present
-    :param edges_src: The source of edges to add in order to add dest,
-                    if None, defaults to the sinks in the graph,
-                    otherwise it is a function returning a list of edges
-                    and taking dest as argument
-    :param spt: The ShortestPath object to update to account for the new node
-                if applicable
-    :param node_data_gen: A function that will generate data for the new node
-                         if needed
-    :param kw: Extra parameters for the edges if any"""
-    if dest in graph:
-        log.debug('%s is already in the graph', dest)
-        return
-
-    if not edges_src:
-        added = []
-        sinks = ssu.find_sink(graph)
-        if not sinks:
-            log.info('No sinks found in the graph!')
-        for node in sinks:
-            log.info('Connected %s to %s in the graph', node, dest)
-            # TODO cleanup, atm. some places use DiGraph other IGPGraph ...
-            graph.add_edge(node, dest, **kw)
-            added.append(node)
-    else:
-        added = edges_src(dest)
-        log.info('Adding edges sources %s to the graph', added)
-        graph.add_edges_from((s, dest) for s in added, **kw)
-    ndata = {} if not node_data_gen else node_data_gen()
-    graph.add_node(dest, prefix=True, **ndata)
-    if added and spt:
-        log.info('Updating SPT')
-        spt.update_paths_towards(graph, dest, added)
-
-
 class ShortestPath(object):
     """A class storing shortest-path trees"""
     def __init__(self, graph):
@@ -335,6 +295,7 @@ class ShortestPath(object):
     def __fibbed_spt_for_src(g, source):
         """Compute the actual used paths due to Fibbing.
         ! the router to which a fake edge is attached does not use it"""
+
         return None, None
 
     @staticmethod
@@ -362,43 +323,6 @@ class ShortestPath(object):
         use on the current network, between u and v or a dict of cost if v
         is None"""
         return self._get(self._default_dist, u, v)
-
-    def update_paths_towards(self, g, dest, added_edges):
-        """Update the shortest paths by adding some new edges towards a
-        destination
-        ! The destination should not be in the already existing SPT!
-        :param g: The graph
-        :param dest: The added destination
-        :param added_edges: The source of the added edges"""
-        self.__update_default_paths(g, dest, added_edges)
-        self.__update_fibbed_paths(g, dest, added_edges)
-
-    def __update_default_paths(self, g, dest, added):
-        for n in g.nodes_iter():
-            if n == dest:  # dest is a path in itself
-                self._default_paths[n] = [[n]]
-                self._default_dist[n] = {n: 0}
-                continue
-            paths = []
-            cost = sys.maxint
-            for s in added:
-                try:
-                    c = self.default_cost(n, s) + g.metric(s, dest)
-                except KeyError:  # No path from n to s, skip
-                    continue
-                p = self.default_path(n, s)
-                if c < cost:  # new spt towards s is n-p-s
-                    paths = list(extend_paths_list(p, dest))
-                    cost = c
-                elif c == cost:  # ecmp
-                    paths.extend(extend_paths_list(p, dest))
-            if paths:
-                log.debug('Adding paths (cost: %s): %s', cost, paths)
-                self._default_paths[n][dest] = paths
-                self._default_dist[n][dest] = cost
-
-    def __update_fibbed_paths(self, g, dest, added):
-        pass
 
     def __repr__(self):
         return '\n'.join('%s -> %s: %s' % (src, dst, p)

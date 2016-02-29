@@ -1,12 +1,11 @@
 import utils as ssu
-import sys
 import abc
 import collections
 import itertools
 import logging
 
 import fibbingnode
-from fibbingnode.misc.igp_graph import ShortestPath, add_dest_to_graph
+from fibbingnode.misc.igp_graph import ShortestPath
 
 
 log = fibbingnode.log
@@ -84,13 +83,14 @@ class Merger(object):
             log.info('Evaluating requirement %s', dest)
             log.info('Ensuring the consistency of the DAG')
             self.check_dest()
-            self.complete_dag()
+            ssu.complete_dag(self.dag, self.g, self.dest, self._p,
+                             skip=self.reqs.keys())
             log.info('Computing original and required next-hop sets')
             for n, node in self.nodes():
                 node.forced_nhs = set(self.dag.successors(n))
                 node.original_nhs = set([p[1] for p in
                                          self._p.default_path(n, self.dest)])
-            if not self.check_consistency():
+            if not ssu.solvable(self.dag, self.g):
                 log.warning('Consistency check failed, skipping %s', dest)
                 continue
             log.info('Placing initial fake nodes')
@@ -119,22 +119,13 @@ class Merger(object):
     def check_dest(self):
         """Check that the destination is present in the DAG and the graph"""
         log.debug('Checking dest in dag')
-        add_dest_to_graph(self.dest, self.dag)
+        ssu.add_dest_to_graph(self.dest, self.dag)
         log.debug('Checking dest in graph')
-        add_dest_to_graph(self.dest, self.g,
-                          edges_src=self.dag.predecessors,
-                          spt=self._p,
-                          metric=self.new_edge_metric,
-                          node_data_gen=self.__new_dest)
-
-    def check_consistency(self):
-        """Checks that the DAG can be embedded in the graph"""
-        log.debug('Checking consitency between the dag and the graph')
-        for u, v in self.dag.edges_iter():
-            if not self.g.has_edge(u, v):
-                log.error('Edge (%s, %s) not found in the graph',  u, v)
-                return False
-        return True
+        ssu.add_dest_to_graph(self.dest, self.g,
+                              edges_src=self.dag.predecessors,
+                              spt=self._p,
+                              metric=self.new_edge_metric,
+                              node_data_gen=self.__new_dest)
 
     @abc.abstractmethod
     def place_fake_nodes(self):
@@ -561,19 +552,6 @@ class Merger(object):
     def ecmp_dep(self, node):
         """Iterates over the ECMP dependencies of n"""
         return self.ecmp[node]
-
-    def complete_dag(self):
-        """Complete the DAG so that missing nodes have their old (or part of)
-        SPT in it"""
-        for n in self.g:
-            if n in self.dag or n in self.reqs:
-                continue  # n has its SPT instructions or is a destination node
-            for p in self._p.default_path(n, self.dest):
-                for u, v in zip(p[:-1], p[1:]):
-                    v_in_dag = v in self.dag
-                    self.dag.add_edge(u, v)
-                    if v_in_dag:  # we connected u to the new SPT
-                        break
 
 
 def prepare_graph(g, req):
