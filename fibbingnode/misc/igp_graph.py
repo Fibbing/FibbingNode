@@ -383,8 +383,8 @@ class ShortestPath(object):
             cost = sys.maxint
             for s in added:
                 try:
-                    c = self.default_cost(n, s)
-                except KeyError:  # No path from s to n, skip
+                    c = self.default_cost(n, s) + g.metric(s, dest)
+                except KeyError:  # No path from n to s, skip
                     continue
                 p = self.default_path(n, s)
                 if c < cost:  # new spt towards s is n-p-s
@@ -393,7 +393,7 @@ class ShortestPath(object):
                 elif c == cost:  # ecmp
                     paths.extend(extend_paths_list(p, dest))
             if paths:
-                log.debug('Adding paths: %s', paths)
+                log.debug('Adding paths (cost: %s): %s', cost, paths)
                 self._default_paths[n][dest] = paths
                 self._default_dist[n][dest] = cost
 
