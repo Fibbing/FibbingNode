@@ -3,7 +3,7 @@
 *.iml
 build
 dist
-fibbingnode.egg-info
+*.egg-info
 dynamips_*
 ilt_*
 *_rom
@@ -23,3 +23,5 @@ lab_comment.pdf
 *.fls
 *fdb_latexmk
 *.aux
+*.egg
+.cache
