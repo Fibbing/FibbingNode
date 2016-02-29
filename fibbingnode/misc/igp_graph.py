@@ -237,7 +237,8 @@ class IGPGraph(nx.DiGraph):
             yield u, v, export_data
 
 
-def add_dest_to_graph(dest, graph, edges_src=None, spt=None, **kw):
+def add_dest_to_graph(dest, graph, edges_src=None, spt=None,
+                      node_data_gen=None, **kw):
     """Add dest to the graph, possibly updating the shortest paths object
 
     :param dest: The destination node, will be set as a prefix
@@ -248,10 +249,13 @@ def add_dest_to_graph(dest, graph, edges_src=None, spt=None, **kw):
                     and taking dest as argument
     :param spt: The ShortestPath object to update to account for the new node
                 if applicable
+    :param node_data_gen: A function that will generate data for the new node
+                         if needed
     :param kw: Extra parameters for the edges if any"""
     if dest in graph:
         log.debug('%s is already in the graph', dest)
         return
+
     if not edges_src:
         added = []
         sinks = ssu.find_sink(graph)
@@ -260,13 +264,14 @@ def add_dest_to_graph(dest, graph, edges_src=None, spt=None, **kw):
         for node in sinks:
             log.info('Connected %s to %s in the graph', node, dest)
             # TODO cleanup, atm. some places use DiGraph other IGPGraph ...
-            graph.add_node(dest, prefix=True)
             graph.add_edge(node, dest, **kw)
             added.append(node)
     else:
         added = edges_src(dest)
         log.info('Adding edges sources %s to the graph', added)
         graph.add_edges_from((s, dest) for s in added, **kw)
+    ndata = {} if not node_data_gen else node_data_gen()
+    graph.add_node(dest, prefix=True, **ndata)
     if added and spt:
         log.info('Updating SPT')
         spt.update_paths_towards(graph, dest, added)
