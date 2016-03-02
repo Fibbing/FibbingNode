@@ -260,7 +260,8 @@ class RootRouter(Router):
     def delete(self):
         self.lsdb.stop()
         super(RootRouter, self).delete()
-        force(self.lsdb_log_file.close)
+        if self.lsdb_log_file:
+            force(self.lsdb_log_file.close)
         force(os.unlink, self.lsdb_log_file_name)
 
     def parse_lsdblog(self):
