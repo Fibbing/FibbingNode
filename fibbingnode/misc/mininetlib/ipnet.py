@@ -160,7 +160,10 @@ class IPNet(Mininet):
 
     def allocate_primaryIPS(self, domains):
         log.info("*** Allocating primary IPs\n")
-        for net, domain in self.network_for_domains(self.ipBase, domains):
+        for net, domain in self.network_for_domains(self.ipBase,
+                                                    domains,
+                                                    max_prefixlen=self
+                                                    .max_alloc_prefixlen):
             hosts = net.hosts()
             for intf in domain:
                 ip = str(next(hosts))
