@@ -7,12 +7,11 @@ from fibbingnode.misc.mininetlib import get_logger, PRIVATE_IP_KEY,\
                                         BDOMAIN_KEY, L3Router, routers_in_bd,\
                                         FIBBING_DEFAULT_AREA
 import fibbingnode.misc.router
+from fibbingnode.misc.router import QuaggaRouter, RouterConfigDict
+from fibbingnode.misc.utils import ConfigDict
 
 log = get_logger()
 fibbingnode.misc.router.log = log
-
-from fibbingnode.misc.router import QuaggaRouter, RouterConfigDict
-from fibbingnode.misc.utils import ConfigDict
 
 
 class MininetRouter(QuaggaRouter):
