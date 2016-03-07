@@ -33,7 +33,8 @@ def get_logger():
 
 def otherIntf(intf):
     """"Get the interface on the other of a link"""
-    return intf.link.intf1 if intf.link.intf2 == intf else intf.link.intf2
+    l = intf.link
+    return (l.intf1 if l.intf2 == intf else l.intf2) if l else None
 
 
 class L3Router(object):

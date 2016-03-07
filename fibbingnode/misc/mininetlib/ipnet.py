@@ -360,7 +360,10 @@ class TopologyDB(object):
     def _add_node(self, n, props):
         """Register a network node"""
         for itf in n.intfList():
-            props[otherIntf(itf).node.name] = {
+            nh = otherIntf(itf)
+            if not nh:
+                continue  # Skip loopback and the likes
+            props[nh.node.name] = {
                 'ip': '%s/%s' % (itf.ip, itf.prefixLen),
                 'name': itf.name,
                 'bw': itf.params.get('bw', -1)
