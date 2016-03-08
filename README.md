@@ -15,15 +15,27 @@ present in the network. A critical file to tune is the config file, whose defaul
 ```bash
 python2 -m fibbingnode
 ```
-3. The Northbound controller, [fibbingnode/shapeshifter](https://github.com/Fibbing/FibbingNode/tree/master/fibbingnode/shapeshifter)
+3. The Northbound controller, [fibbingnode/shapeshifter](https://github.com/Fibbing/FibbingNode/tree/master/fibbingnode/algorithms)
 which implements the algorithms to compute the augmented topology and then communicates to the
-southern part through a json insterface. An example use of it is available in [tests/demo.py](https://github.com/Fibbing/FibbingNode/blob/master/tests/demo.py)
+southern part through a json insterface.
 
 # Basic installation
 
 ```bash
 git clone --recursive https://github.com/Fibbing/FibbingNode.git
-./setup.sh
+./install.sh
 ```
 
 This will install the quagga distribution under /opt/fibbing/ and the fibbingnode python module
+
+# Demo
+
+[Sample labs are available in another repository](https://github.com/Fibbing/labs)
+
+# Virtual-Machine
+
+[Script to build a Virtual Box VM able to run the controller, make it interact with physical routers, or run mininet-based experiments is available in another repository](https://github.com/Fibbing/virtual-machine)
+
+# Documentation
+
+There is an ongoing work to document the inner-workings of the controller, its architecture, ... while not yet public, feel free to contact @oliviertilmans if you have questions.
