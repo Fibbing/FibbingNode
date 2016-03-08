@@ -38,4 +38,4 @@ This will install the quagga distribution under /opt/fibbing/ and the fibbingnod
 
 # Documentation
 
-There is an ongoing work to document the inner-workings of the controller, its architecture, ... while not yet public, feel free to contact @oliviertilmans if you have questions.
+There is an ongoing work to document the inner-workings of the controller, its architecture, ... while not yet public, feel free to contact [@oliviertilmans](https://github.com/oliviertilmans) if you have questions.
