@@ -16,7 +16,7 @@ from fibbingnode.misc.mininetlib import get_logger, PRIVATE_IP_KEY, CFG_KEY,\
 from fibbingnode.misc.mininetlib.iprouter import IPRouter
 from fibbingnode.misc.mininetlib.fibbingcontroller import FibbingController
 
-from fibbingnode.misc.utils import cmp_prefixlen
+from fibbingnode.misc.utils import cmp_prefixlen, is_container
 
 log = get_logger()
 
@@ -194,9 +194,13 @@ class IPNet(Mininet):
         :param max_prefixlen: The maximal length of the prefix allocated for
                               each broadcast domain"""
         domains.sort(key=len, reverse=True)
-        net = ip_network(net)
-        networks = [net]
-        net_space = net.max_prefixlen
+        # We want to support allocation across multiple network prefixes
+        if not is_container(net):
+            net = [net]
+        # ip_network(ip_network(x)) is safe -- tests/test_pyaddress.py
+        networks = [ip_network(n) for n in net]
+        # Hopefully we only allocate across prefixes in the same IP version...
+        net_space = networks[0].max_prefixlen
         """We keep the networks sorted as x < y so that the bigger domains
         take the smallest network before subdividing
         The assumption is that if the domains range from the biggest to
@@ -208,6 +212,8 @@ class IPNet(Mininet):
         (reuses on of the split networks) or smaller:
         use and earlier network or split a bigger one.
         """
+        # Need to setup invariant
+        networks.sort(cmp=cmp_prefixlen)
         for d in domains:
             if not networks:
                 log.error("No subnet left in the prefix space for all"
