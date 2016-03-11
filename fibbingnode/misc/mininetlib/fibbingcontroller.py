@@ -29,8 +29,6 @@ class FibbingController(_node.Host, L3Router):
         self.cmd('ip', 'link', 'set', 'dev', 'lo', 'up')
         itfs = self.dump_cfg_info()
         log.info('Starting southbound controller for ', self.name, '\n')
-        log.info('\t\t--- Property file: ', self.cfg_path, '\n')
-        log.info('\t\t--- Unix Socket: ', self.socket_path, '\n')
         args = ['python', '-m', 'fibbingnode',  # '--nocli',
                 '--cfg', self.cfg_path]
         args.extend(itfs)

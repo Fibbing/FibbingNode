@@ -103,8 +103,8 @@ class MininetRouterConfig(RouterConfigDict):
             # addresses dont create redundant OSPF session over the same
             # interface ...
             try:
-                networks.append((ip_interface(itf.params[PRIVATE_IP_KEY][0])
-                                 .network, area))
+                networks.extend((ip_interface(net).network, area)
+                                for net in itf.params[PRIVATE_IP_KEY])
             except KeyError:
                 pass  # No private ip on that interface
         for net, area in networks:

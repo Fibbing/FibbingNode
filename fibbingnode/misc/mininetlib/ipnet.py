@@ -51,17 +51,17 @@ class IPNet(Mininet):
         if debug:
             log.setLogLevel('debug')
         self.private_ip_count = private_ip_count
-        self.private_ip_net = (private_ip_net if is_container(private_ip_net)
-                               else [private_ip_net])
+        self.private_ip_net = private_ip_net
+        self.unallocated_private_net = [private_ip_net]
         self.router = router
         self.private_ip_bindings = private_ip_bindings
         self.controller_net = controller_net
         self.routers = []
         self.ip_allocs = {}
         self.max_alloc_prefixlen = max_alloc_prefixlen
+        self.unallocated_ip_base = [ipBase]
         super(IPNet, self).__init__(ipBase=ipBase, controller=controller,
                                     switch=switch, *args, **kwargs)
-        self.unallocated_ip_base = [self.ipBase]
 
     def addRouter(self, name, cls=None, **params):
         defaults = {'private_net': self.private_ip_net}
@@ -149,7 +149,7 @@ class IPNet(Mininet):
     def build(self):
         super(IPNet, self).build()
         domains = self.broadcast_domains()
-        log.info("*** Found %s broadcast domains\n" % len(domains))
+        log.info("*** Found", len(domains), "broadcast domains\n")
         self.allocate_primaryIPS(domains)
         router_domains = filter(lambda x: x is not None and len(x) > 1,
                                 (routers_in_bd(d, IPRouter) for d in domains))
@@ -173,17 +173,21 @@ class IPNet(Mininet):
 
     def allocate_privateIPs(self, router_domains):
         log.info("*** Allocating private router IPs\n")
-        allocations = list(self.network_for_domains(self.private_ip_net,
-                                                    router_domains,
-                                                    self.private_ip_count))
-        for net, domain in allocations:
+        alloc = []
+        for _ in xrange(self.private_ip_count):
+            alloc.extend(self.network_for_domains(self.unallocated_private_net,
+                                                  router_domains))
+        for net, domain in alloc:
             hosts = net.hosts()
             for intf in domain:
-                intf.params[PRIVATE_IP_KEY] = ['%s/%s' %
-                                               (next(hosts), net.prefixlen)
-                                               for _ in
-                                               range(0, self.private_ip_count)]
-        return allocations
+                try:
+                    l = intf.params[PRIVATE_IP_KEY]
+                except KeyError:
+                    l = []
+                    intf.params[PRIVATE_IP_KEY] = l
+                finally:
+                    l.append('%s/%s' % (next(hosts), net.prefixlen))
+        return alloc
 
     @staticmethod
     def network_for_domains(net, domains, scale_factor=1,
@@ -202,7 +206,7 @@ class IPNet(Mininet):
         if not is_container(net):
             net = [ip_network(net)]
         else:
-            for n, i in enumerate(net):
+            for i, n in enumerate(net):
                 net[i] = ip_network(n)
         networks = net
         # Hopefully we only allocate across prefixes in the same IP version...
