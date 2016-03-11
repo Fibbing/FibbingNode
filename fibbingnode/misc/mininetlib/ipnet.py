@@ -51,7 +51,8 @@ class IPNet(Mininet):
         if debug:
             log.setLogLevel('debug')
         self.private_ip_count = private_ip_count
-        self.private_ip_net = private_ip_net
+        self.private_ip_net = (private_ip_net if is_container(private_ip_net)
+                               else [private_ip_net])
         self.router = router
         self.private_ip_bindings = private_ip_bindings
         self.controller_net = controller_net
@@ -60,6 +61,7 @@ class IPNet(Mininet):
         self.max_alloc_prefixlen = max_alloc_prefixlen
         super(IPNet, self).__init__(ipBase=ipBase, controller=controller,
                                     switch=switch, *args, **kwargs)
+        self.unallocated_ip_base = [self.ipBase]
 
     def addRouter(self, name, cls=None, **params):
         defaults = {'private_net': self.private_ip_net}
@@ -160,7 +162,7 @@ class IPNet(Mininet):
 
     def allocate_primaryIPS(self, domains):
         log.info("*** Allocating primary IPs\n")
-        for net, domain in self.network_for_domains(self.ipBase,
+        for net, domain in self.network_for_domains(self.unallocated_ip_base,
                                                     domains,
                                                     max_prefixlen=self
                                                     .max_alloc_prefixlen):
@@ -188,17 +190,21 @@ class IPNet(Mininet):
                             max_prefixlen=sys.maxint):
         """"Return [ ( subnet, [ intf* ] )* ]
         Assign a network prefix to every broadcast domain
-        :param net: the original network to split
+        :param net: the original network to split, if this is a list, modifies
+                    it to contain the list of prefixes still free
         :param domains: the list of broadcast domains
         :param scale_factor: the number of ip to assign per interface
         :param max_prefixlen: The maximal length of the prefix allocated for
                               each broadcast domain"""
         domains.sort(key=len, reverse=True)
         # We want to support allocation across multiple network prefixes
-        if not is_container(net):
-            net = [net]
         # ip_network(ip_network(x)) is safe -- tests/test_pyaddress.py
-        networks = [ip_network(n) for n in net]
+        if not is_container(net):
+            net = [ip_network(net)]
+        else:
+            for n, i in enumerate(net):
+                net[i] = ip_network(n)
+        networks = net
         # Hopefully we only allocate across prefixes in the same IP version...
         net_space = networks[0].max_prefixlen
         """We keep the networks sorted as x < y so that the bigger domains
