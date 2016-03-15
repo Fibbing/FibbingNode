@@ -302,8 +302,8 @@ class IPNet(Mininet):
         params2 = params.get('params2', {})
         if 'cost' not in params2:
             params2.update(cost=cost)
-        params1['area'] = FIBBING_DEFAULT_AREA
-        params2['area'] = FIBBING_DEFAULT_AREA
+        params1['area'] = area
+        params2['area'] = area
         params.update(params1=params1)
         params.update(params2=params2)
         super(IPNet, self).addLink(node1, node2, port1, port2, **params)

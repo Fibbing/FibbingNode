@@ -162,10 +162,10 @@ class LSA(object):
         for subcls in LSA.__subclasses__():
             if subcls.TYPE == lsa_header.lsa_type:
                 return subcls.parse(lsa_header, lsa_prop)
-        log.error('Couldn''t parse the LSA type %s [%s]',
+        log.debug('Couldn''t parse the LSA type %s [%s]',
                   lsa_header.lsa_type,
                   lsa_prop)
-        return None
+        return UnusedLSA()
 
     @abstractmethod
     def key(self):
@@ -191,6 +191,14 @@ class LSA(object):
         :return: bool
         """
         return False
+
+
+class UnusedLSA(LSA):
+    def key(self):
+        return None
+
+    def apply(self, graph, lsdb):
+        pass
 
 
 class RouterLSA(LSA):
@@ -422,10 +430,15 @@ class LSDB(object):
             del lsdb[lsa.key()]
         except KeyError:
             pass
+        except TypeError:
+            pass  # LSDB is None
 
     def add_lsa(self, lsa):
         lsdb = self.lsdb(lsa)
-        lsdb[lsa.key()] = lsa
+        try:
+            lsdb[lsa.key()] = lsa
+        except TypeError:
+            pass  # LSDB is None
 
     def process_lsa(self):
         while self.keep_running:
