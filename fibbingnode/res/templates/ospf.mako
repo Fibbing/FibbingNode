@@ -1,5 +1,11 @@
 hostname ${node.hostname}
 password ${node.password}
+% if node.ospf.logfile:
+log file ${node.ospf.logfile}
+% endif
+% for section in node.ospf.debug:
+debug ospf section
+% endfor
 !
 % for intf in node.ospf.interfaces:
   interface ${intf.name}

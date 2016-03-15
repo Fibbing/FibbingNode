@@ -230,13 +230,17 @@ class VTYSH(object):
 
 
 class RouterConfigDict(ConfigDict):
-    def __init__(self, router, *args, **kwargs):
+    def __init__(self, router, debug_ospf=(), debug_zebra=(), *args, **kwargs):
         super(RouterConfigDict, self).__init__(*args, **kwargs)
         self.hostname = router.name
         self.password = OSPFD_PASSWORD
         self.redistribute = ConfigDict()
         self.ospf = self.build_ospf(router)
         self.zebra = self.build_zebra(router)
+        self.ospf.logfile = '/tmp/ospfd_%s.log' % router.name
+        self.ospf.debug = debug_ospf
+        self.zebra.logfile = '/tmp/zebra_%s.log' % router.name
+        self.zebra.debug = debug_zebra
 
     def build_ospf(self, router, cfg=None):
         if not cfg:

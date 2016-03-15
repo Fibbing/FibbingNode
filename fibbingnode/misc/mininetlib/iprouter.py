@@ -28,14 +28,21 @@ class MininetRouter(QuaggaRouter):
         return self.mnode.popen(*args, **kwargs)
 
     def get_config_node(self):
-        return MininetRouterConfig(self.mnode)
+        return MininetRouterConfig(self.mnode,
+                                   debug_ospf=self.mnode.debug.get('ospf', ()),
+                                   debug_zebra=self.mnode.debug.get('zebra',
+                                                                    ()))
 
 
 class IPRouter(Node, L3Router):
     def __init__(self, name, private_net='10.0.0.0/8',
-                 routerid=None, static_routes=(), **kwargs):
-        """static_routes in the form of (prefix, via_node_id)*"""
+                 routerid=None, static_routes=(), debug=None,
+                 **kwargs):
+        """static_routes in the form of (prefix, via_node_id)*
+        debug as a dict with the daemon name as key and the value
+        is a list of quagga debug flags to set for that daemon"""
         self.private_net = str(private_net)
+        self.debug = debug if debug else {}
         self.rid = routerid
         self.static_routes = static_routes
         self.hello_interval = '1'
@@ -76,8 +83,8 @@ class IPRouter(Node, L3Router):
 
 
 class MininetRouterConfig(RouterConfigDict):
-    def __init__(self, router):
-        super(MininetRouterConfig, self).__init__(router)
+    def __init__(self, router, *args, **kwargs):
+        super(MininetRouterConfig, self).__init__(router, *args, **kwargs)
         self.ospf.redistribute.connected = 1000
         self.ospf.redistribute.static = 1000
         self.ospf.router_id = router.id

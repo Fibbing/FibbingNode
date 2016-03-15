@@ -1,6 +1,11 @@
 hostname ${node.hostname}
 password ${node.password}
-
+% if node.zebra.logfile:
+log file ${node.zebra.logfile}
+% endif
+% for section in node.zebra.debug:
+debug zebra section
+% endfor
 % for pl in node.zebra.prefixlists:
 ip prefix-list ${pl.name} ${pl.action} ${pl.prefix} ge ${pl.ge}
 % endfor
