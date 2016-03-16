@@ -24,7 +24,7 @@ setup(
         "Topic :: System :: Networking",
         ],
     keywords='networking OSPF fibbing',
-    license='BSD',
+    license='GPLv2',
     install_requires=[
         'setuptools',
         'mako',
