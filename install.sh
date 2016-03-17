@@ -10,6 +10,9 @@ DIR=`dirname $SCRIPT`
 BIN=`(awk -F "=" '/quagga_path=/ { print $NF }' $DIR/fibbingnode/res/default.cfg)`
 
 quagga() {
+    git submodule init || exit 1
+    git submodule update || exit 1
+
     if ! getent group quagga ; then
         echo "Creating group quagga"
         groupadd quagga
