@@ -23,9 +23,7 @@ class OSPFSimple(object):
 
     @staticmethod
     def require_fake_node(req_nhs, original_nhs):
-        return len(req_nhs) > 1 or\
-               len(original_nhs) > 1 or\
-               set(req_nhs).symmetric_difference(original_nhs)
+        return set(req_nhs).symmetric_difference(original_nhs)
 
     def solve(self, topo, requirement_dags):
         # a list of tuples with info on the node to be attracted,
