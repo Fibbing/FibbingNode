@@ -55,7 +55,7 @@ class IPRouter(Node, L3Router):
         for itf in self.intfList():
             for ip in itf.params.get(PRIVATE_IP_KEY, ()):
                 self.cmd('ip', 'address', 'add', ip,
-                         'dev', itf.name, 'scope', 'link')
+                         'dev', itf.name)  #, 'scope', 'link')
         neighbor_to_intf = {otherIntf(itf).name: itf
                             for itf in self.intfList()}
         self.static_routes = [(p, v if v not in neighbor_to_intf
