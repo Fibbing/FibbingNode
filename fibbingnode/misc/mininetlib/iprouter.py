@@ -94,26 +94,29 @@ class MininetRouterConfig(RouterConfigDict):
         networks = []
         for itf in router.ospf_interfaces():
             c = itf.params.get('cost', FIBBING_MIN_COST)
-            area = itf.params.get('area', FIBBING_DEFAULT_AREA)
-            cfg.interfaces\
-               .append(ConfigDict(name=itf.name,
-                                  description=str(itf.link),
-                                  ospf=ConfigDict(cost=c,
-                                                  priority=10,
-                                                  dead_int=router
-                                                  .dead_interval,
-                                                  hello_int=router
-                                                  .hello_interval)))
-            networks.append((ip_interface('%s/%s' % (itf.ip, itf.prefixLen))
-                             .network, area))
-            # TODO figure out the private config knob so that the private
-            # addresses dont create redundant OSPF session over the same
-            # interface ...
-            try:
-                networks.extend((ip_interface(net).network, area)
-                                for net in itf.params[PRIVATE_IP_KEY])
-            except KeyError:
-                pass  # No private ip on that interface
+            if c > 0:
+                cfg.interfaces.append(
+                    ConfigDict(name=itf.name,
+                               description=str(itf.link),
+                               ospf=ConfigDict(
+                                    cost=c,
+                                    priority=10,
+                                    dead_int=router.dead_interval,
+                                    hello_int=router.hello_interval)))
+                area = itf.params.get('area', FIBBING_DEFAULT_AREA)
+                networks.append((ip_interface('%s/%s' %
+                                              (itf.ip, itf.prefixLen))
+                                .network, area))
+                # TODO figure out the private config knob so that the private
+                # addresses dont create redundant OSPF session over the same
+                # interface ...
+                try:
+                    networks.extend((ip_interface(net).network, area)
+                                    for net in itf.params[PRIVATE_IP_KEY])
+                except KeyError:
+                    pass  # No private ip on that interface
+            else:
+                cfg.passive_interfaces.append(itf)
         for net, area in networks:
             cfg.networks.append(ConfigDict(domain=net.with_prefixlen,
                                            area=area))

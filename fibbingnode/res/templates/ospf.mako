@@ -32,4 +32,7 @@ router ospf
   % for net in node.ospf.networks:
   network ${net.domain} area ${net.area}
   % endfor
+  % for itf in node.ospf.passive_interfaces:
+  passive-interface ${itf.name}
+  % endfor
 !

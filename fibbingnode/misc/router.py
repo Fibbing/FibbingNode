@@ -251,6 +251,8 @@ class RouterConfigDict(ConfigDict):
             cfg.interfaces = []
         if not cfg.networks:
             cfg.networks = []
+        if not cfg.passive_interfaces:
+            cfg.passive_interfaces = []
         return cfg
 
     def build_zebra(self, router, cfg=None):
