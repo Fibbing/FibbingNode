@@ -297,7 +297,7 @@ class IPNet(Mininet):
     def addLink(self, node1, node2, port1=None, port2=None,
                 cost=FIBBING_MIN_COST, area=FIBBING_DEFAULT_AREA, **params):
         """:param cost: The IGP metric of this link (applied to both
-        interfaces) if not set in params1/2. If it is <= 0, this will desable
+        interfaces) if not set in params1/2. If it is <= 0, this will disable
         OSPF on this interface! (passive-interface)
         :param area: The IGP area for the interfaces on this link"""
         params1 = params.get('params1', {})

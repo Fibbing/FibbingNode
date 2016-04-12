@@ -48,5 +48,6 @@ class L3Router(object):
 
 
 def routers_in_bd(bd, cls=None):
-    return list(filter(L3Router.is_l3router_intf if not cls
-                       else lambda x: isinstance(x.node, cls), bd))
+    return list(filter(L3Router.is_l3router_intf if not cls else
+                       cls.is_l3router_intf,
+                bd))

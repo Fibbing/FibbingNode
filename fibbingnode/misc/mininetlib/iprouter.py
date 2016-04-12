@@ -67,6 +67,12 @@ class IPRouter(Node, L3Router):
         self.router.delete()
         super(IPRouter, self).terminate()
 
+    @staticmethod
+    def is_l3router_intf(itf):
+        # We override the instance check in order to not match Controllers
+        return (isinstance(itf.node, IPRouter) and
+                itf.params.get('cost', 1) >= 0)
+
     @property
     def id(self):
         return self.rid if self.rid else self.intfList()[0].ip
