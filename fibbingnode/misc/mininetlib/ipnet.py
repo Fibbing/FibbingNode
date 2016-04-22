@@ -26,7 +26,9 @@ def isBroadcastDomainBoundary(node):
 
 
 class IPNet(Mininet):
-    """:param private_ip_count: The number of private address per router
+    """:param allocate_addresses: Whether to auto-allocate IP addresses in the
+                                  network or not.
+        :param private_ip_count: The number of private address per router
                             interface
         :param private_ip_net: The network used for private addresses
         :param private_ip_bindings: The file name for the private ip binding
@@ -38,6 +40,7 @@ class IPNet(Mininet):
     def __init__(self,
                  router=IPRouter,
                  controller=FibbingController,
+                 allocate_addresses=True,
                  private_ip_count=1,
                  private_ip_net='10.0.0.0/8',
                  controller_net='172.16.0.0/12',
@@ -50,6 +53,7 @@ class IPNet(Mininet):
         _lib.DEBUG_FLAG = debug
         if debug:
             log.setLogLevel('debug')
+        self.allocate_addresses = allocate_addresses
         self.private_ip_count = private_ip_count
         self.private_ip_net = private_ip_net
         self.unallocated_private_net = [private_ip_net]
@@ -150,7 +154,8 @@ class IPNet(Mininet):
         super(IPNet, self).build()
         domains = self.broadcast_domains()
         log.info("*** Found", len(domains), "broadcast domains\n")
-        self.allocate_primaryIPS(domains)
+        if self.allocate_addresses:
+            self.allocate_primaryIPS(domains)
         router_domains = filter(lambda x: x is not None and len(x) > 1,
                                 (routers_in_bd(d, IPRouter) for d in domains))
         allocations = self.allocate_privateIPs(router_domains)

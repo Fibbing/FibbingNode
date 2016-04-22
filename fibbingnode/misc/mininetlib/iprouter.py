@@ -28,15 +28,16 @@ class MininetRouter(QuaggaRouter):
         return self.mnode.popen(*args, **kwargs)
 
     def get_config_node(self):
-        return MininetRouterConfig(self.mnode,
-                                   debug_ospf=self.mnode.debug.get('ospf', ()),
-                                   debug_zebra=self.mnode.debug.get('zebra',
-                                                                    ()))
+        return MininetRouterConfig(
+                self.mnode,
+                debug_ospf=self.mnode.debug.get('ospf', ()),
+                debug_zebra=self.mnode.debug.get('zebra', ()))
 
 
 class IPRouter(Node, L3Router):
     def __init__(self, name, private_net='10.0.0.0/8',
                  routerid=None, static_routes=(), debug=None,
+                 subrouter=MininetRouter,
                  **kwargs):
         """static_routes in the form of (prefix, via_node_id)*
         debug as a dict with the daemon name as key and the value
@@ -48,23 +49,25 @@ class IPRouter(Node, L3Router):
         self.hello_interval = '1'
         self.dead_interval = 'minimal hello-multiplier 5'
         super(IPRouter, self).__init__(name, **kwargs)
-        self.router = MininetRouter(self)
+        self.router = subrouter(self) if subrouter else None
 
     def start(self):
         self.cmd('ip', 'link', 'set', 'dev', 'lo', 'up')
         for itf in self.intfList():
             for ip in itf.params.get(PRIVATE_IP_KEY, ()):
                 self.cmd('ip', 'address', 'add', ip,
-                         'dev', itf.name)  #, 'scope', 'link')
+                         'dev', itf.name)
         neighbor_to_intf = {otherIntf(itf).name: itf
                             for itf in self.intfList()}
         self.static_routes = [(p, v if v not in neighbor_to_intf
                                else neighbor_to_intf[v])
                               for p, v in self.static_routes]
-        self.router.start()
+        if self.router:
+            self.router.start()
 
     def terminate(self):
-        self.router.delete()
+        if self.router:
+            self.router.delete()
         super(IPRouter, self).terminate()
 
     @staticmethod

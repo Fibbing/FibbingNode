@@ -27,6 +27,7 @@ class FakeNodeProxy(object):
                           visible lie using abs(metric) to choose which private
                           IP to use.
                 * prefix: the network prefix corresponding to this route
+            source and fwd are OSPF router id.
         """
 
     @abstractmethod
