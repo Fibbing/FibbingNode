@@ -1,6 +1,8 @@
 import sys
+import time
 import math
 import json
+import itertools
 
 from ipaddress import ip_interface, ip_network
 
@@ -36,6 +38,8 @@ class IPNet(Mininet):
                                 Internal networks
         :param max_alloc_prefixlen: The maximal prefix for the auto-allocated
                                     broadcast domains
+        :param wait_for_convergence: Set of nodes that should be able to ping
+                                     each other when starting the network
     """
     def __init__(self,
                  router=IPRouter,
@@ -49,6 +53,7 @@ class IPNet(Mininet):
                  private_ip_bindings='private_ip_binding.json',
                  debug=_lib.DEBUG_FLAG,
                  switch=LinuxBridge,
+                 wait_for_convergence=(),
                  *args, **kwargs):
         _lib.DEBUG_FLAG = debug
         if debug:
@@ -64,6 +69,7 @@ class IPNet(Mininet):
         self.ip_allocs = {}
         self.max_alloc_prefixlen = max_alloc_prefixlen
         self.unallocated_ip_base = [ipBase]
+        self.wait_for_convergence = wait_for_convergence
         super(IPNet, self).__init__(ipBase=ipBase, controller=controller,
                                     switch=switch, *args, **kwargs)
 
@@ -111,7 +117,12 @@ class IPNet(Mininet):
         log.info('\n')
         super(IPNet, self).buildFromTopo(topo)
 
-    def start(self):
+    def start(self, timeout=None):
+        """If the network has a set of nodes to test for convergence, this
+        method will block until they can all ping each other.
+
+        :param timeout: Maximal time in sec before giving up on the convergence
+                        test"""
         for n in self.values():
             for i in n.intfList():
                 self.ip_allocs[str(i.ip)] = n
@@ -141,6 +152,30 @@ class IPNet(Mininet):
                 log.info('%s is not connected to a router, ' % h.name)
         log.info('\n')
         super(IPNet, self).start()
+        if self.wait_for_convergence:
+            self._convergence_test(timeout)
+
+    def _convergence_test(self, timeout):
+        log.info('Waiting for the network to converge\n')
+        log.info('(Watching:', self.wait_for_convergence, ')')
+        start_t = time.time()
+        converged = 0
+        while converged < 100:
+            sent_tot, received_tot = 0, 0
+            for src, dst in itertools.combinations(
+                    self.wait_for_convergence, 2):
+                r = self[src].cmd('ping -c1 -W 1 %s' % self[dst].IP())
+                sent, received = self._parsePing(r)
+                sent_tot += sent
+                received_tot += received
+            converged = received_tot / sent_tot * 100
+            if timeout and time.time() - start_t > timeout:
+                break
+            log.info(converged, '%/')
+        if converged >= 100:
+            log.info('Converged in', time.time() - start_t, 'sec\n')
+        else:
+            log.error('The network did not converge !!\n')
 
     def stop(self):
         log.info('*** Stopping %i routers\n' % len(self.routers))
