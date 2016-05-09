@@ -1,4 +1,5 @@
 import signal
+import os
 import subprocess
 
 import ConfigParser as cparser
@@ -17,12 +18,13 @@ class FibbingController(_node.Host, L3Router):
 
     instance_count = 0
 
-    def __init__(self, name, cfg_path=None, *args, **kwargs):
+    def __init__(self, name, cfg_path=None, quiet=False, *args, **kwargs):
         super(FibbingController, self).__init__(name, *args, **kwargs)
         self.config_params = kwargs.get(CFG_KEY, {})
         self.socket_path = "/tmp/%s.socket" % self.name
         self.cfg_path = "%s.cfg" % self.name if not cfg_path else cfg_path
         self.instance_number = FibbingController.instance_count
+        self.quiet = quiet
         FibbingController.instance_count += 1
 
     def start(self):
@@ -32,10 +34,11 @@ class FibbingController(_node.Host, L3Router):
         args = ['python', '-m', 'fibbingnode',  # '--nocli',
                 '--cfg', self.cfg_path]
         args.extend(itfs)
+        serr = sout = (None if not self.quiet else open(os.devnull, 'wb'))
         self.process = self.popen(args,
                                   stdin=subprocess.PIPE,
-                                  stderr=None,
-                                  stdout=None)
+                                  stderr=serr,
+                                  stdout=sout)
 
     def stop(self, *args, **kwargs):
         def _timeout(sig, frame):

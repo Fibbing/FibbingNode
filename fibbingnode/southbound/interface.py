@@ -5,12 +5,14 @@ Each proxy class exposes the methods available to the other side
 of the socket, e.g. via a call to an SJMPClient instance execute method.
 See tests/sjmptest.py for examples.
 """
-from abc import abstractmethod
+from abc import abstractmethod, ABCMeta
 import fibbingnode
 
 
 class FakeNodeProxy(object):
     """The interface that a southbound controller implements"""
+
+    __metaclass__ = ABCMeta
 
     @abstractmethod
     def add(self, points):
@@ -51,6 +53,8 @@ class FakeNodeProxy(object):
 
 class ShapeshifterProxy(object):
     """The interface that a Northbound controller application must implement"""
+
+    __metaclass__ = ABCMeta
 
     @abstractmethod
     def add_edge(self, source, destination, properties={'metric': 1}):

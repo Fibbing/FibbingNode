@@ -123,7 +123,7 @@ def LocalLie(prefix, edge_src, edge_dst, ipindex=1):
     return LSA(edge_src, edge_dst, -ipindex, prefix)
 
 
-def GlobalLie(self, dest, cost, nh, node=None):
+def GlobalLie(dest, cost, nh, node=None):
     return LSA(node, nh, cost, dest)
 
 
