@@ -153,7 +153,7 @@ class SouthboundController(SouthboundListener):
         """Refresh the set of LSAs that needs to be sent in the IGP,
         and instructs the southbound controller to update it if changed"""
         (to_add, to_rem) = self._get_diff_lsas()
-        if not (to_add or to_rem):
+        if not to_add and not to_rem:
             log.debug('Nothing to do for the current topology')
             return
         if to_rem:
@@ -169,7 +169,7 @@ class StaticPathManager(SouthboundController):
         self.demands = set()
 
     def refresh_augmented_topo(self):
-        return self.demands
+        return set(self.demands)
 
     def add_lie(self, *lies):
         """Add lies (LSA) to send in the network"""
