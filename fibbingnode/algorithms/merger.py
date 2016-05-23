@@ -404,7 +404,7 @@ class Merger(object):
             log.error('Merging %s into %s resulted in a LB decrease from '
                       '%s to %s (%s''s LB: %s, spt cost: %s)',
                       n, s, succ.lb, new_lb, n, node.lb, cost)
-        # Report unfeasibible merge
+        # Report unfeasible merge
         if not new_lb + 1 < new_ub:
             log.debug('Merging %s into %s would lead to bounds of '
                       ']%s, %s[, aborting', n, s, new_lb, new_ub)
@@ -433,7 +433,7 @@ class Merger(object):
         def propagation_assign(node, lb):
             record_undo(setattr, node, 'lb', node.lb)
             log.debug('Propagation caused the LB of %s to increase by %s',
-                      n, lb)
+                      node, lb)
             Node.increase_lb(node, lb)
 
         log.debug('Trying to apply merge, n: %s, s:%s, lb:%s, ub:%s, nh:%s',
@@ -463,6 +463,8 @@ class Merger(object):
             return
         remove_n = not node.has_fake_node(Node.GLOBAL)
         if remove_n:
+            record_undo(setattr, node, 'fake', node.fake)
+            node.fake = None
             log.debug('Also removing %s from its ECMP deps has it no longer '
                       'has a fake node.', n)
         deps = self.ecmp[s]
@@ -508,6 +510,7 @@ class Merger(object):
                 continue
             node = self.node(n)
             for nh in node.forced_nhs:
+                log.debug('Creating LSA for %s -> %s', n, nh)
                 lsa.append(ssu.LSA(node=n,
                                    nh=nh,
                                    cost=node.lb + 1
