@@ -3,24 +3,20 @@ import sys
 import abc
 import collections
 import itertools
-import logging
 
-import fibbingnode
+from fibbingnode import log
 from fibbingnode.misc.igp_graph import ShortestPath
 
 
-log = fibbingnode.log
-log.setLevel(logging.DEBUG)
-
-
 DEFAULT_LB = 0
+DEFAULT_UB = 0
 
 
 class Node(object):
     GLOBAL = 'global'  # Globally visible fake node
     LOCAL = 'local'   # Locally-scoped fake node
 
-    def __init__(self, lb=DEFAULT_LB, ub=0, fake=None, name=None,
+    def __init__(self, lb=DEFAULT_LB, ub=DEFAULT_UB, fake=None, name=None,
                  original_nhs=None, forced_nhs=None):
         self.lb = lb  # Lower bound
         self.ub = ub  # Upper bound
@@ -33,6 +29,14 @@ class Node(object):
         """Attach a fake node to this node
         :param type: Whether the node should be locally or globally visible"""
         self.fake = type
+
+    def remove_fake_node(self, clear_nhs=True):
+        """Remove the fake node from this router
+
+        :param clear_nhs: Whether to also clear forced_nhs or not"""
+        self.fake = None
+        if clear_nhs:
+            self.forced_nhs.clear()
 
     def has_fake_node(self, subtype=None):
         """Whether this node has a fake or not
@@ -107,6 +111,7 @@ class Merger(object):
                       [n for _, n in self.nodes() if n.has_any_fake_node()])
             log.info('Reducing the augmented topology')
             self.merge_fake_nodes()
+            self.remove_redundant_fake_nodes()
             log.info('Generating LSAs')
             lsas = self.create_fake_lsa()
             log.info('Solved the DAG for destination %s with LSA set: %s',
@@ -182,6 +187,9 @@ class Merger(object):
             visited.add(node_name)
             n = self.node(node_name)
             if n.has_fake_node(Node.GLOBAL):
+                if n.lb != DEFAULT_LB:
+                    log.debug('%s has already its LB')
+                    continue
                 lb = self.initial_lb_of(node_name)
                 log.debug('Setting initial lb of %s to: %s', node_name, lb)
                 n.lb = lb
@@ -241,7 +249,9 @@ class Merger(object):
                 continue
             nei_lb = (self._p.default_cost(nei, self.dest) -
                       self._p.default_cost(nei, node))
-            if self.dag_include_spt(n, nei):  # We added a redundant fake node
+            if n != nei and self.dag_include_spt(n, nei):
+                log.debug('%s is a redundant fake node with %s, setting LB to '
+                          'shortest-path cost', n, nei)
                 nei_lb -= 1
             if nei_lb > lb:
                 lb = nei_lb
@@ -251,6 +261,9 @@ class Merger(object):
 
     def compute_initial_ub(self):
         for n, node in self.nodes(Node.GLOBAL):
+            if node.ub != DEFAULT_UB:
+                log.debug('%s already has its UB set to %s', n, node.ub)
+                continue
             node.ub = self._p.default_cost(n, self.dest)
             log.debug('Initial ub of %s set to %s', n, node.ub)
 
@@ -305,7 +318,9 @@ class Merger(object):
                                 if e == n:
                                     continue
                                 e_node = self.node(e)
-                                if e_node.lb + lb_diff + 1 < e_node.ub:
+                                if self.valid_range(e,
+                                                    e_node.lb + lb_diff,
+                                                    e_node.ub):
                                     log.debug('Increasing the LB of %s', e)
                                     assign(e_node, lb_diff)
                                     # Schedule the neighbor for update
@@ -329,7 +344,8 @@ class Merger(object):
         stack = [(p, n) for p in self.dag.predecessors(n)]
         while stack:
             u, v = stack.pop()
-            if v in self.node(u).forced_nhs:  # u has a fake node towards v
+            # u has a fake node towards v
+            if v in self.node(u).forced_nhs:
                 continue
             elif u in fixed_nodes:  # we already saw u
                 continue
@@ -414,7 +430,7 @@ class Merger(object):
                       '%s to %s (%s''s LB: %s, spt cost: %s)',
                       n, s, succ.lb, new_lb, n, node.lb, cost)
         # Report unfeasible merge
-        if not new_lb + 1 < new_ub:
+        if not self.valid_range(s, new_lb, new_ub):
             log.debug('Merging %s into %s would lead to bounds of '
                       ']%s, %s[, aborting', n, s, new_lb, new_ub)
             return None
@@ -428,11 +444,11 @@ class Merger(object):
 
         def undo_all():
             log.debug('Undoing all changes')
-            for (f, args) in reversed(undos):
-                f(*args)
+            for (f, args, kw) in reversed(undos):
+                f(*args, **kw)
 
-        def record_undo(f, *args):
-            undos.append((f, args))
+        def record_undo(f, *args, **kw):
+            undos.append((f, args, kw))
 
         def propagation_fail(n):
             log.debug('The propagation failed on node %s, aborting merge!', n)
@@ -472,8 +488,8 @@ class Merger(object):
             return
         remove_n = not node.has_fake_node(Node.GLOBAL)
         if remove_n:
-            record_undo(setattr, node, 'fake', node.fake)
-            node.fake = None
+            record_undo(node.add_fake_node, node.fake)
+            node.remove_fake_node()
             log.debug('Also removing %s from its ECMP deps has it no longer '
                       'has a fake node.', n)
         deps = self.ecmp[s]
@@ -492,7 +508,7 @@ class Merger(object):
                 e_deps.add(s)
                 record_undo(e_deps.remove, s)
             new_lb = e_node.lb + path_cost_increase
-            if not new_lb + 1 < e_node.ub:
+            if not self.valid_range(e, new_lb, e_node.ub):
                 log.debug('Cannot increase the ECMP ecmp dep %s of %s by %s. '
                           'Aborting merge!', e, n, path_cost_increase)
                 undo_all()
@@ -512,6 +528,41 @@ class Merger(object):
         else:
             log.info('Merged %s into %s', n, s)
 
+    def remove_redundant_fake_nodes(self):
+        """Remove fake nodes that are useless (typically a path of redundant
+        fake nodes that eventually got merged up to the penultimates nodes in
+        the DAG)."""
+        visited = set()
+        # Start from destination and go back up the leaves
+        to_visit = set(self.dag.predecessors_iter(self.dest))
+        while to_visit:
+            n = to_visit.pop()
+            if n in visited:
+                continue
+            visited.add(n)
+            node = self.node(n)
+            # If we have a fake node
+            if node.has_fake_node(subtype=Node.GLOBAL):
+                # Is the LB redundant with the original SP ?
+                succ = self.dag.successors(n)
+                succ_dest_cost = self._p.default_cost(succ[0], self.dest)
+                n_succ_cost = self._p.default_cost(n, succ[0])
+                if node.lb + 1 == succ_dest_cost + n_succ_cost and\
+                   node.original_nhs == set(succ):
+                    log.debug('Removing %s as it is redundant with the '
+                              'original path [lb: %s, succ cost: %s, '
+                              'n-succ cost: %s, succ: %s, orig succ: %s]',
+                              n, node.lb, succ_dest_cost, n_succ_cost,
+                              node.original_nhs, succ)
+                    node.remove_fake_node()
+                else:
+                    log.debug('Keeping %s [lb: %s, succ cost: %s, '
+                              'n-succ cost: %s, succ: %s, orig succ: %s]',
+                              n, node.lb, succ_dest_cost, n_succ_cost,
+                              node.original_nhs, succ)
+            else:
+                to_visit |= set(self.dag.predecessors_iter(n))
+
     def create_fake_lsa(self):
         lsa = []
         for n in self.dag:
@@ -519,6 +570,9 @@ class Merger(object):
                 continue
             node = self.node(n)
             for nh in node.forced_nhs:
+                if nh == self.dest:
+                    log.warning('Ignoring LSA towards nh == dest ?!?')
+                    continue
                 log.debug('Creating LSA for %s -> %s', n, nh)
                 lsa.append(ssu.LSA(node=n,
                                    nh=nh,
@@ -565,6 +619,13 @@ class Merger(object):
         """Iterates over the ECMP dependencies of n"""
         return self.ecmp[node]
 
+    def valid_range(self, s, lb, ub):
+        """Check if the proposed lb/ub range is valid for the node named s"""
+        ub_padding = (1 if
+                      set(self.dag.successors(s)) == self.node(s).original_nhs
+                      else 0)
+        return lb + 1 < ub + ub_padding
+
 
 def prepare_graph(g, req):
     """Copy the given graph and preset nodes attribute
@@ -584,19 +645,16 @@ class FullMerger(Merger):
         except those with at most one outgoing link"""
 
     def place_fake_nodes(self):
-        map(self.add_fake_node,
-            filter(self.fake_node_candidate), self.g.out_degree_iter())
-
-    def fake_node_candidate(self, candidate):
-        """Filter out nodes that cannot change their nexthop anyway
-        :type candidate: (node, out_degree)"""
-        return candidate[1] > 1
-
-    def add_fake_node(self, candidate):
-        """Add a fake node on the graph
-        :type candidate: (node, out_degree)"""
-        self.node(candidate[0]).add_fake_node()
-        log.debug('Adding a fake node on %s', candidate[0])
+        penultimate_nodes = self.dag.predecessors(self.dest)
+        for n in self.dag.nodes_iter():
+            if self.g.out_degree(n) > 1:  # Skip sinks
+                node = self.node(n)
+                node.add_fake_node()
+                log.debug('Adding a fake node on %s', n)
+                if n in penultimate_nodes:
+                    node.lb = self._p.default_cost(n, self.dest) - 1
+                    node.ub = node.lb + 2
+                    log.debug('%s is a penultimate node, LB = cost to dest', n)
 
 
 class PartialMerger(Merger):
@@ -610,7 +668,7 @@ class PartialMerger(Merger):
                     node.add_fake_node()
                     log.debug('Adding a fake node on %s', n)
                 else:
-                    node.forced_nhs = set()
+                    node.forced_nhs.clear()
                     log.debug('Skipping %s has it keeps the same successors',
                               n)
 

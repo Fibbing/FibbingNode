@@ -1,12 +1,28 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import sys
+import os
+import inspect
 import unittest
+import logging
 import collections
+from fibbingnode import log, fmt
 import fibbingnode.algorithms.merger as merger
 import fibbingnode.algorithms.utils as ssu
 from fibbingnode.misc.igp_graph import IGPGraph
-from fibbingnode import log
 
+log.setLevel(logging.DEBUG)
+
+HIDE_PASSING_LOGS = True
+if HIDE_PASSING_LOGS:
+    map(log.removeHandler, log.handlers)
+    log_hdlr = logging.StreamHandler(sys.stdout)
+    log_hdlr.setFormatter(fmt)
+    log.addHandler(log_hdlr)
+    f_hdlr = logging.FileHandler(
+            '%s.log' % os.path.basename(__file__).split('.')[0], 'w')
+    f_hdlr.setFormatter(fmt)
+    log.addHandler(f_hdlr)
 
 #
 # Useful tip to selectively disable test: @unittest.skip('reason')
@@ -265,33 +281,38 @@ class Gadgets():
 
 
 class MergerTestCase(unittest.TestCase):
-    def __init__(self, *args, **kwargs):
-        super(MergerTestCase, self).__init__(*args, **kwargs)
-        # self.solver_provider = merger.PartialECMPMerger
-        self.solver_provider = merger.FullMerger
+    def __init__(self, *args, **kw):
+        super(MergerTestCase, self).__init__(*args, **kw)
+        self.solver_provider = merger.PartialECMPMerger
 
     def setUp(self):
+        if HIDE_PASSING_LOGS:
+            log_hdlr.stream = sys.stdout
         self.gadgets = Gadgets()
 
     def _test(self, igp_topo, fwd_dags, expected_lsa_count):
         solver = self.solver_provider()
         lsas = solver.solve(igp_topo, fwd_dags)
         self.assertTrue(check_fwd_dags(fwd_dags, igp_topo, lsas, solver))
-        print 'lsa count:', len(lsas), 'expected_lsa_count:', expected_lsa_count
+        log.debug('lsa count: %s, expected: %s', len(lsas), expected_lsa_count)
         self.assertTrue(len(lsas) == expected_lsa_count)
 
-    # @unittest.skip('passing')
-    def testTrapezoid(self):
-        log.warning('Testing Trapezoid')
+    def log_test_name(self):
+        # Get previous stack frame, 3rd part is func name
+        test = inspect.stack()[1][3]
+        log.warning('[%s] Testing %s with %s', self.__class__.__name__, test,
+                    self.solver_provider.__name__)
+
+    def testTrapezoid(self, expected_lsa_count=1):
+        self.log_test_name()
         self._test(self.gadgets.trap,
                    {'1_8': IGPGraph([('R1', 'R2'),
                                      ('R2', 'E2'),
                                      ('E2', 'D')])},
-                   1)
+                   expected_lsa_count)
 
-    # @unittest.skip('passing')
-    def testTrapezoidWithEcmp(self):
-        log.warning('Testing TrapezoidWithEcmp')
+    def testTrapezoidWithEcmp(self, expected_lsa_count=3):
+        self.log_test_name()
         self._test(self.gadgets.trap,
                    {'2_8': IGPGraph([('R1', 'R2'),
                                      ('R2', 'E2'),
@@ -299,11 +320,10 @@ class MergerTestCase(unittest.TestCase):
                                      # ECMP on E1
                                      ('E1', 'D'),
                                      ('E1', 'R1')])},
-                   3)
+                   expected_lsa_count)
 
-    # @unittest.skip('passing')
-    def testDiamond(self):
-        log.warning('Testing Diamond')
+    def testDiamond(self, expected_lsa_count=2):
+        self.log_test_name()
         self._test(self.gadgets.diamond,
                    {'3_8': IGPGraph([('A', 'Y1'),
                                      ('A', 'Y2'),
@@ -311,23 +331,21 @@ class MergerTestCase(unittest.TestCase):
                                      ('Y1', 'X'),
                                      ('X', 'D'),
                                      ('O', 'D')])},
-                   2)
+                   expected_lsa_count)
 
-    # @unittest.skip('passing')
-    def testSquareWithThreeConsecutiveChanges(self):
-        log.warning('Testing SquareWithThreeConsecutiveChanges')
+    def testSquareWithThreeConsecutiveChanges(self, expected_lsa_count=3):
+        self.log_test_name()
         self._test(self.gadgets.square,
                    {'3_8': IGPGraph([('D2', 'B1'),
                                      ('B1', 'T1'),
                                      ('T1', 'T2'),
                                      ('T2', 'B2'),
                                      ('B2', 'D1')])},
-                   3)
+                   expected_lsa_count)
 
-    # @unittest.skip('passing')
-    def testSquareWithThreeConsecutiveChangesAndMultipleRequirements(self):
-        log.warning('Testing SquareWithThreeConsecutiveChanges'
-                    'AndMultipleRequirements')
+    def testSquareWithThreeConsecutiveChangesAndMultipleRequirements(
+            self, expected_lsa_count=5):
+        self.log_test_name()
         dag = IGPGraph([('D2', 'B1'),
                         ('B1', 'T1'),
                         ('T1', 'T2'),
@@ -335,11 +353,10 @@ class MergerTestCase(unittest.TestCase):
                         ('B2', 'D1')])
         self._test(self.gadgets.square,
                    {'3_8': dag, '8_3': dag.reverse(copy=True)},
-                   5)
+                   expected_lsa_count)
 
-    # @unittest.skip('passing')
-    def testPaperGadget(self):
-        log.warning('Testing PaperGadget')
+    def testPaperGadget(self, expected_lsa_count=1):
+        self.log_test_name()
         self._test(self.gadgets.paper_gadget,
                    {'3_8': IGPGraph([('H1', 'X'),
                                      ('H2', 'X'),
@@ -347,20 +364,18 @@ class MergerTestCase(unittest.TestCase):
                                      ('X', 'Y'),
                                      ('A1', 'Y'),
                                      ('A2', 'Y')])},
-                   1)
+                   expected_lsa_count)
 
-    # @unittest.skip('passing')
-    def testWeird(self):
-        log.warning('Testing Weird')
+    def testWeird(self, expected_lsa_count=2):
+        self.log_test_name()
         self._test(self.gadgets.weird,
                    {'3_8': IGPGraph([('D', 'C'),
                                      ('C', 'B'),
                                      ('B', 'A')])},
-                   2)
+                   expected_lsa_count)
 
-    # @unittest.skip('passing')
-    def testParallel(self):
-        log.warning('Testing Parallel')
+    def testParallel(self, expected_lsa_count=4):
+        self.log_test_name()
         self._test(self.gadgets.parallel,
                    {'3_8': IGPGraph([('A2', 'B2'),
                                      ('B2', 'C2'),
@@ -370,11 +385,10 @@ class MergerTestCase(unittest.TestCase):
                                      ('C1', 'B1'),
                                      ('B1', 'A1'),
                                      ('A1', 'D')])},
-                   4)
+                   expected_lsa_count)
 
-    # @unittest.skip('passing')
-    def testDoubleDiamond(self):
-        log.warning('Testing DoubleDiamond')
+    def testDoubleDiamond(self, expected_lsa_count=3):
+        self.log_test_name()
         self._test(self.gadgets.ddiamond,
                    {'1_8': IGPGraph([('H1', 'Y1'),
                                      ('H1', 'Y2'),
@@ -382,7 +396,110 @@ class MergerTestCase(unittest.TestCase):
                                      ('Y2', 'X'),
                                      ('H2', 'X'),
                                      ('X', 'D')])},
-                   3)
+                   expected_lsa_count)
+
+
+class PartialECMPMergerTestCase(MergerTestCase):
+    def __init__(self, *args, **kw):
+        super(PartialECMPMergerTestCase, self).__init__(*args, **kw)
+        self.solver_provider = merger.PartialECMPMerger
+
+    # @unittest.skip('passing')
+    def testTrapezoid(self, expected_lsa_count=1):
+        super(PartialECMPMergerTestCase, self).testTrapezoid(
+                expected_lsa_count)
+
+    # @unittest.skip('passing')
+    def testTrapezoidWithEcmp(self, expected_lsa_count=3):
+        super(PartialECMPMergerTestCase, self).testTrapezoidWithEcmp(
+                expected_lsa_count)
+
+    # @unittest.skip('passing')
+    def testDiamond(self, expected_lsa_count=2):
+        super(PartialECMPMergerTestCase, self).testDiamond(expected_lsa_count)
+
+    # @unittest.skip('passing')
+    def testSquareWithThreeConsecutiveChanges(self, expected_lsa_count=3):
+        super(PartialECMPMergerTestCase, self).\
+                testSquareWithThreeConsecutiveChanges(expected_lsa_count)
+
+    # @unittest.skip('passing')
+    def testSquareWithThreeConsecutiveChangesAndMultipleRequirements(
+            self, expected_lsa_count=5):
+        super(PartialECMPMergerTestCase, self).\
+         testSquareWithThreeConsecutiveChangesAndMultipleRequirements(
+                expected_lsa_count)
+
+    # @unittest.skip('passing')
+    def testPaperGadget(self, expected_lsa_count=1):
+        super(PartialECMPMergerTestCase, self).testPaperGadget(
+                expected_lsa_count)
+
+    # @unittest.skip('passing')
+    def testWeird(self, expected_lsa_count=2):
+        super(PartialECMPMergerTestCase, self).testWeird(expected_lsa_count)
+
+    # @unittest.skip('passing')
+    def testParallel(self, expected_lsa_count=4):  # 3 local, 1 global
+        super(PartialECMPMergerTestCase, self).testParallel(expected_lsa_count)
+
+    # @unittest.skip('passing')
+    def testDoubleDiamond(self, expected_lsa_count=3):
+        super(PartialECMPMergerTestCase, self).testDoubleDiamond(
+                expected_lsa_count)
+
+
+class FullMergerTestCase(MergerTestCase):
+    def __init__(self, *args, **kw):
+        super(FullMergerTestCase, self).__init__(*args, **kw)
+        self.solver_provider = merger.FullMerger
+
+    # @unittest.skip('passing')
+    def testTrapezoid(self, expected_lsa_count=1):
+        super(FullMergerTestCase, self).testTrapezoid(expected_lsa_count)
+
+    # @unittest.skip('passing')
+    def testTrapezoidWithEcmp(self, expected_lsa_count=3):
+        super(FullMergerTestCase, self).testTrapezoidWithEcmp(
+                expected_lsa_count)
+
+    # @unittest.skip('passing')
+    def testDiamond(self, expected_lsa_count=2):
+        super(FullMergerTestCase, self).testDiamond(expected_lsa_count)
+
+    # @unittest.skip('passing')
+    def testSquareWithThreeConsecutiveChanges(self, expected_lsa_count=3):
+        super(FullMergerTestCase, self).testSquareWithThreeConsecutiveChanges(
+                expected_lsa_count)
+
+    # @unittest.skip('passing')
+    def testSquareWithThreeConsecutiveChangesAndMultipleRequirements(
+            self, expected_lsa_count=5):
+        super(FullMergerTestCase, self).\
+         testSquareWithThreeConsecutiveChangesAndMultipleRequirements(
+                expected_lsa_count)
+
+    # @unittest.skip('passing')
+    def testPaperGadget(self, expected_lsa_count=1):
+        super(FullMergerTestCase, self).testPaperGadget(expected_lsa_count)
+
+    # @unittest.skip('passing')
+    def testWeird(self, expected_lsa_count=2):
+        super(FullMergerTestCase, self).testWeird(expected_lsa_count)
+
+    # @unittest.skip('passing')
+    def testParallel(self, expected_lsa_count=6):  # 6 global
+        super(FullMergerTestCase, self).testParallel(expected_lsa_count)
+
+    # @unittest.skip('passing')
+    def testDoubleDiamond(self, expected_lsa_count=3):
+        super(FullMergerTestCase, self).testDoubleDiamond(expected_lsa_count)
 
 if __name__ == '__main__':
-    unittest.main()
+    if HIDE_PASSING_LOGS:
+        print '-' * 45
+        print "Showing logs only for the tests that failed."
+        print "Detailled logs for all tests are available in",\
+              f_hdlr.baseFilename
+        print '-' * 45
+    unittest.main(buffer=True, verbosity=2)
