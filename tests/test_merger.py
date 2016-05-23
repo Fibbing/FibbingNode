@@ -132,6 +132,8 @@ class Gadgets():
         self._add_edge(g, 'C2', 'C1', 2)
         self._add_edge(g, 'B2', 'B1', 2)
         self._add_edge(g, 'A2', 'A1', 2)
+        for _, data in g.nodes_iter(data=True):
+            data['router'] = True
 
     def _setUpWeird(self):
         #     +-----D-----+
@@ -145,6 +147,8 @@ class Gadgets():
         self._add_edge(g, 'D', 'C', 2)
         self._add_edge(g, 'D', 'B', 2)
         self._add_edge(g, 'D', 'A', 2)
+        for _, data in g.nodes_iter(data=True):
+            data['router'] = True
 
     def _setUpPaperGadget(self):
         # H1 -- 19 -- A1 ---------+
@@ -170,6 +174,8 @@ class Gadgets():
         self._add_edge(g, 'H3', 'A2', 6)
         self._add_edge(g, 'H2', 'A2', 6)
         self._add_edge(g, 'Y', 'A2', 17)
+        for _, data in g.nodes_iter(data=True):
+            data['router'] = True
 
     def _setUpTrapezoid(self):
         #  R1 -- 100 -- E1 -- 10 -+
@@ -184,6 +190,8 @@ class Gadgets():
         self._add_edge(g, 'R2', 'E2', metric=10)
         self._add_edge(g, 'E1', 'D', metric=10)
         self._add_edge(g, 'E2', 'D', metric=10)
+        for _, data in g.nodes_iter(data=True):
+            data['router'] = True
 
     def _setUpSquare(self):
         self.square = g = IGPGraph()
@@ -203,6 +211,8 @@ class Gadgets():
         self._add_edge(g, 'T2', 'B2', metric=100)
         self._add_edge(g, 'D1', 'B2', metric=100)
         self._add_edge(g, 'D2', 'B1', metric=100)
+        for _, data in g.nodes_iter(data=True):
+            data['router'] = True
 
     def _setUpDiamond(self):
         #  A  ---5---  Y1
@@ -223,6 +233,8 @@ class Gadgets():
         self._add_edge(g, 'A', 'O', metric=25)
         self._add_edge(g, 'X', 'O', metric=30)
         self._add_edge(g, 'D', 'O', metric=10)
+        for _, data in g.nodes_iter(data=True):
+            data['router'] = True
 
     def _setUpDoubleDiamond(self):
         #  + --------19--------- +
@@ -248,12 +260,15 @@ class Gadgets():
         self._add_edge(g, 'H2', 'X', metric=2)
         self._add_edge(g, 'A', 'D', metric=17)
         self._add_edge(g, 'X', 'D', metric=100)
+        for _, data in g.nodes_iter(data=True):
+            data['router'] = True
 
 
 class MergerTestCase(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(MergerTestCase, self).__init__(*args, **kwargs)
-        self.solver_provider = merger.PartialECMPMerger
+        # self.solver_provider = merger.PartialECMPMerger
+        self.solver_provider = merger.FullMerger
 
     def setUp(self):
         self.gadgets = Gadgets()
@@ -262,6 +277,7 @@ class MergerTestCase(unittest.TestCase):
         solver = self.solver_provider()
         lsas = solver.solve(igp_topo, fwd_dags)
         self.assertTrue(check_fwd_dags(fwd_dags, igp_topo, lsas, solver))
+        print 'lsa count:', len(lsas), 'expected_lsa_count:', expected_lsa_count
         self.assertTrue(len(lsas) == expected_lsa_count)
 
     # @unittest.skip('passing')
