@@ -1,4 +1,5 @@
 import utils as ssu
+import sys
 import abc
 import collections
 import itertools
@@ -12,11 +13,14 @@ log = fibbingnode.log
 log.setLevel(logging.DEBUG)
 
 
+DEFAULT_LB = 0
+
+
 class Node(object):
     GLOBAL = 'global'  # Globally visible fake node
     LOCAL = 'local'   # Locally-scoped fake node
 
-    def __init__(self, lb=0, ub=0, fake=None, name=None,
+    def __init__(self, lb=DEFAULT_LB, ub=0, fake=None, name=None,
                  original_nhs=None, forced_nhs=None):
         self.lb = lb  # Lower bound
         self.ub = ub  # Upper bound
@@ -99,6 +103,8 @@ class Merger(object):
             self.initialize_fake_nodes()
             log.info('Propagating initial lower bounds')
             self.propagate_lb()
+            log.debug('Fake node bounds: %s',
+                      [n for _, n in self.nodes() if n.has_any_fake_node()])
             log.info('Reducing the augmented topology')
             self.merge_fake_nodes()
             log.info('Generating LSAs')
@@ -187,7 +193,7 @@ class Merger(object):
 
     def initial_lb_of(self, node):
         """Compute the initial lower bound of a node"""
-        lb = 0
+        lb = DEFAULT_LB
         for nei in self.g[node]:
             if nei in self.reqs:
                 log.debug('Not considering %s for initial LB of %s as '
@@ -235,6 +241,8 @@ class Merger(object):
                 continue
             nei_lb = (self._p.default_cost(nei, self.dest) -
                       self._p.default_cost(nei, node))
+            if self.dag_include_spt(n, nei):  # We added a redundant fake node
+                nei_lb -= 1
             if nei_lb > lb:
                 lb = nei_lb
                 log.debug('Initial LB of %s set to %s by %s',
@@ -335,7 +343,8 @@ class Merger(object):
         that is the potential it has to influence another fakenode lb."""
         links_to_fn = [self._p.default_cost(n, nei)
                        for nei, _ in self.fake_neighbors(n)]
-        return (self.node(n).lb - min(links_to_fn)) if links_to_fn else 0
+        return ((self.node(n).lb - min(links_to_fn))
+                if len(links_to_fn) > 0 else -sys.maxint)
 
     def inherit_lb(self, node, from_node, fixed_neighbors):
         """Return the LB to set on node based on the one from from_node"""
@@ -540,7 +549,7 @@ class Merger(object):
         """Iterator over all fake nodes reachable from node
         :return: iter((name, node))"""
         visited = set()
-        to_visit = set(self.g.neighbors(node))
+        to_visit = set(self.g.real_neighbors(node))
         while to_visit:
             n = to_visit.pop()
             if n in visited:
@@ -550,7 +559,7 @@ class Merger(object):
             if n_node.has_fake_node(subtype=Node.GLOBAL):
                 yield n, n_node
             else:
-                to_visit |= set(self.g.neighbors(node))
+                to_visit |= set(self.g.real_neighbors(n))
 
     def ecmp_dep(self, node):
         """Iterates over the ECMP dependencies of n"""

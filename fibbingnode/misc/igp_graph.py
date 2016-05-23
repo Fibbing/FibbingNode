@@ -236,6 +236,10 @@ class IGPGraph(nx.DiGraph):
             export_data = self._filter_edge_data(d)
             yield u, v, export_data
 
+    def real_neighbors(self, n):
+        """List the real (non dest) nodes in this graph"""
+        return filter(self.is_router, self.neighbors_iter(n))
+
 
 class ShortestPath(object):
     """A class storing shortest-path trees"""
