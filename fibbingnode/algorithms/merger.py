@@ -50,10 +50,10 @@ class Node(object):
 
     def __repr__(self):
         if self.forced_nhs:
-            return '%s - Fake: %s ]%s,%s[ %s' % (self.name, self.fake, self.lb,
-                                                 self.ub, self.forced_nhs)
+            return '<%s - Fake: %s ]%s,%s[ %s>' % (
+                self.name, self.fake, self.lb, self.ub, self.forced_nhs)
         else:
-            return '%s - Fixed: %s' % (self.name, self.original_nhs)
+            return '<%s - Fixed: %s>' % (self.name, self.original_nhs)
 
     @staticmethod
     def increase_lb(n, lb):
@@ -178,6 +178,7 @@ class Merger(object):
         """Set the initial values for the lb on every node having a fake node
         BFS from the dest until nodes having a fake node"""
         visited = set()
+        # Start at root
         to_visit = set(self.g.predecessors_iter(self.dest))
         while to_visit:
             node_name = to_visit.pop()
@@ -188,12 +189,13 @@ class Merger(object):
             n = self.node(node_name)
             if n.has_fake_node(Node.GLOBAL):
                 if n.lb != DEFAULT_LB:
-                    log.debug('%s has already its LB')
+                    log.debug('%s has already its LB', n)
                     continue
                 lb = self.initial_lb_of(node_name)
                 log.debug('Setting initial lb of %s to: %s', node_name, lb)
                 n.lb = lb
             else:
+                # Crawl up
                 log.debug('%s does not have a global fake node, '
                           'exploring neighbours',
                           node_name)
@@ -321,7 +323,9 @@ class Merger(object):
                                 if self.valid_range(e,
                                                     e_node.lb + lb_diff,
                                                     e_node.ub):
-                                    log.debug('Increasing the LB of %s', e)
+                                    log.debug(
+                                        'ECMP dep. -- Increasing the LB of %s',
+                                        e)
                                     assign(e_node, lb_diff)
                                     # Schedule the neighbor for update
                                     pq.push((self.get_delta(e), e))
@@ -357,14 +361,21 @@ class Merger(object):
     def get_delta(self, n):
         """Return the delta value associated to that node,
         that is the potential it has to influence another fakenode lb."""
-        links_to_fn = [self._p.default_cost(n, nei)
-                       for nei, _ in self.fake_neighbors(n)]
-        return ((self.node(n).lb - min(links_to_fn))
-                if len(links_to_fn) > 0 else -sys.maxint)
+        cost_to_fn = [self._p.default_cost(n, nei)
+                      for nei, _ in self.fake_neighbors(n)]
+        # LB - cost to reach the closest FN
+        return ((self.node(n).lb - min(cost_to_fn))
+                if len(cost_to_fn) > 0 else -sys.maxint)
 
     def inherit_lb(self, node, from_node, fixed_neighbors):
         """Return the LB to set on node based on the one from from_node"""
         lb_base = self.node(from_node).lb
+        # forall n in (from_node, fixed_neighbors)
+        #   c = COST(from_node, n) - COST(n, node)
+        #   if DAG(n->node) != IGP(n->node)
+        #       c += 1
+        #   else
+        #       We need to attract node anyway, and will merge both FN
         lb = max(map(lambda n: (self._p.default_cost(from_node, n) -
                                 self._p.default_cost(n, node) +
                                 (1 if not self.dag_include_spt(n, node)
@@ -382,6 +393,7 @@ class Merger(object):
                           if self.node(n).has_any_fake_node()]
             for idx, (n_pos, n) in enumerate(fake_nodes[:-1]):
                 _, succ = fake_nodes[idx+1]
+                # We can only merge Global Lies
                 if self.node(n).fake == Node.GLOBAL\
                    and self.node(succ).fake == Node.GLOBAL:
                     self.merge(n, succ, path[n_pos + 1])
