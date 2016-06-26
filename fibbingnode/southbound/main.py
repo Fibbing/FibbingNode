@@ -195,7 +195,7 @@ def handle_args():
     return ports, instance_count, not args.nocli
 
 
-def main():
+def main(_CLI=FibbingCLI):
     phys_ports, name, cli = handle_args()
     if not cli:
         fibbingnode.log_to_file('%s.log' % name)
@@ -212,7 +212,7 @@ def main():
     try:
         mngr.start(phys_ports=phys_ports)
         if cli:
-            cli = FibbingCLI(mngr=mngr)
+            cli = _CLI(mngr=mngr)
             cli.cmdloop()
             fibbingnode.EXIT.set()
     except Exception as e:
