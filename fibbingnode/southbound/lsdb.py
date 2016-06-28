@@ -642,7 +642,7 @@ class PrivateAddressStore(object):
                     if not f
                     else self._address_bindings[rid][f])
         except KeyError:
-            raise ValueError('No private address for %s from %s' % (rid, f))
+            log.debug('No private address for %s from %s', rid, f)
 
     def targets_for(self, ip):
         """Return the list of router ids able to reach the given private ip"""
