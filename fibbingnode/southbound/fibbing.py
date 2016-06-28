@@ -1,4 +1,4 @@
-from ConfigParser import DEFAULTSECT
+from ConfigParser import DEFAULTSECT, Error as ConfigError
 from collections import OrderedDict
 from itertools import groupby
 from operator import itemgetter
@@ -22,20 +22,22 @@ def gen_physical_ports(port_list):
     ports = []
     for port_name in port_list:
         try:
-            out = subprocess.check_output(['ip', 'a', 'show', port_name])
-            for line in out.splitlines():
-                if 'inet ' in line:
-                    line = line.strip(' \t\n')
-                    # inet 130.104.228.87/25 brd 130.104.228.127 \
-                    #                                 scope global dynamic eno1
-                    port_addr = ip_interface(line.split(' ')[1])
-                    log.debug('Added physical port %s@%s',
-                              port_name, port_addr)
-                    ports.append((port_name, port_addr))
-                    break
-                    # TODO support multiple IP/interface?
-        except subprocess.CalledProcessError as e:
-            log.exception(e)
+            ip = ip_interface(CFG.get(port_name, 'ip'))
+            ports.append((port_name, ip))
+        except ConfigError:
+            try:
+                out = subprocess.check_output(['ip', 'a', 'show', port_name])
+                for line in out.splitlines():
+                    if 'inet ' in line:
+                        line = line.strip(' \t\n')
+                        port_addr = ip_interface(line.split(' ')[1])
+                        log.debug('Added physical port %s@%s',
+                                  port_name, port_addr)
+                        ports.append((port_name, port_addr))
+                        break
+                        # TODO support multiple IP/interface?
+            except subprocess.CalledProcessError as e:
+                log.exception(e)
     return ports
 
 

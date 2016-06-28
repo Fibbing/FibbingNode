@@ -626,6 +626,11 @@ class PrivateAddressStore(object):
             log.error(str(e))
             ip_to_bd.clear()
             router_private_address.clear()
+        except IOError as e:
+            log.error('Cannot read private address file')
+            log.error(str(e))
+            ip_to_bd.clear()
+            router_private_address.clear()
         return router_private_address, ip_to_bd
 
     def addresses_of(self, rid, f=None):
