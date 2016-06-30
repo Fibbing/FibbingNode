@@ -231,7 +231,7 @@ def complete_dag(dag, graph, dest, paths, skip=()):
     :param dest: the destination to consider
     :param paths: a ShortestPath object
     :param skip: nodes that must not be considered"""
-    for n in graph:
+    for n in graph.routers:
         if n in dag or n in skip or not graph.successors(n):
             continue  # n has its SPT instructions or is a destination node
         for p in paths.default_path(n, dest):
