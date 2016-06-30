@@ -120,6 +120,11 @@ class PhysicalLink(object):
                         cost=CFG.get(section, 'cost'))
         self.src.move_in_namespace()
         self.src.set_ip(port_ip)
+        self.node = node
+        self.name = port_name
+
+    def move_to_root(self):
+        self.node.call('ip', 'link', 'set', 'dev', self.name, 'netns', '1')
 
     def __str__(self):
         return 'Physical Link from %s' % self.src

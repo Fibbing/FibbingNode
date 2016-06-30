@@ -259,6 +259,8 @@ class RootRouter(Router):
 
     def delete(self):
         self.lsdb.stop()
+        for p in self.physical_links:
+            p.move_to_root()
         super(RootRouter, self).delete()
         if self.lsdb_log_file:
             force(self.lsdb_log_file.close)
