@@ -43,11 +43,18 @@ class NetworkNamespace(object):
         cmd = ['ip', 'netns', 'exec', self.name]
         cmd.extend(args)
         log.debug(str(cmd))
-        return subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kwargs)
+        if 'stdin' not in kwargs:
+            kwargs['stdin'] = subprocess.PIPE
+        if 'stdout' not in kwargs:
+            kwargs['stdout'] = subprocess.PIPE
+        if 'stderr' not in kwargs:
+            kwargs['stderr'] = subprocess.STDOUT
+        return subprocess.Popen(cmd, **kwargs)
 
     def capture_port(self, port):
         log.debug('Moving port %s into namespace %s', port, self.name)
-        return subprocess.call(['ip', 'link', 'set', port.id, 'netns', self.name])
+        return subprocess.call(
+                ['ip', 'link', 'set', port.id, 'netns', self.name])
 
     def delete(self):
         sleep(.2)
@@ -59,7 +66,8 @@ class RootNamespace(object):
     def __init__(self):
         self.name = 'root'
         # This namespace does nothing special
-        for attr, _ in inspect.getmembers(NetworkNamespace, predicate=inspect.ismethod):
+        for attr, _ in inspect.getmembers(NetworkNamespace,
+                                          predicate=inspect.ismethod):
             setattr(self, attr, self._proxy)
         # Except the standard calls ...
         setattr(self, 'call', self._call)
@@ -70,7 +78,13 @@ class RootNamespace(object):
         return subprocess.call(args, *kwargs)
 
     def _pipe(self, *args, **kwargs):
-        return subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **kwargs)
+        if 'stdin' not in kwargs:
+            kwargs['stdin'] = subprocess.PIPE
+        if 'stdout' not in kwargs:
+            kwargs['stdout'] = subprocess.PIPE
+        if 'stderr' not in kwargs:
+            kwargs['stderr'] = subprocess.STDOUT
+        return subprocess.Popen(args, **kwargs)
 
     def _proxy(*args, **kwargs):
         pass
