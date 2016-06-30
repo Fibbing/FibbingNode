@@ -34,7 +34,7 @@ quagga() {
     autoreconf -vfi
     # But succeeds after the second one.
     autoreconf -vfi
-    ./configure --prefix=${BIN} --enable-multipath=0
+    ./configure --prefix=${BIN} --enable-multipath=0 --enable-vtysh --enable-withdraw
     make -j 4
     make install
     cd ${CWD}
