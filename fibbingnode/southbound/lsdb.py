@@ -551,9 +551,9 @@ class LSDB(object):
             if CFG.getboolean(DEFAULTSECT, 'draw_graph'):
                 new_graph.draw(CFG.get(DEFAULTSECT, 'graph_loc'))
             self.graph = new_graph
-            log.info('LSA update yielded +%d -%d edges changes, '
-                     '%d node property changes', len(added_edges),
-                     len(removed_edges), len(node_prop_diff))
+            log.debug('LSA update yielded +%d -%d edges changes, '
+                      '%d node property changes', len(added_edges),
+                      len(removed_edges), len(node_prop_diff))
             self.for_all_listeners('commit')
 
     def for_all_listeners(self, funcname, *args, **kwargs):
