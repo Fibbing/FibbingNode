@@ -17,7 +17,7 @@ setup(
     packages=find_packages(),
     include_package_data = True,
     classifiers=[
-        "License :: OSI Approved :: BSD License",
+        "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
         "Programming Language :: Python",
         "Development Status :: 2 - Pre-Alpha",
         "Intended Audience :: Developers",

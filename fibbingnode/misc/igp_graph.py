@@ -45,6 +45,7 @@ else:
 METRIC = 'metric'
 FAKE = 'fake'
 LOCAL = 'target'
+MULTIPLICITY_KEY = 'multiplicity'
 
 
 class IGPGraph(nx.DiGraph):
@@ -239,6 +240,18 @@ class IGPGraph(nx.DiGraph):
     def real_neighbors(self, n):
         """List the real (non dest) nodes in this graph"""
         return filter(self.is_router, self.neighbors_iter(n))
+
+    def set_edge_multiplicity(self, u, v, m):
+        """Define the edge multiplicity, typically to encode splitting ratios
+        in the graph.
+
+        :param u, v: The edges end points
+        :param m: The multiplicity value"""
+        self[u][v][MULTIPLICITY_KEY] = m
+
+    def get_edge_multiplicity(self, u, v):
+        """Return the multiplicity of the edge u, v"""
+        return self[u][v].get(MULTIPLICITY_KEY, 1)
 
 
 class ShortestPath(object):

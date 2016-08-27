@@ -1,6 +1,7 @@
 import os
 import sys
 import collections
+import itertools
 
 from time import sleep
 from fibbingnode import log
@@ -147,3 +148,8 @@ def is_container(x):
     """Return whether x is a container (=iterable but not a string)"""
     return (isinstance(x, collections.Sequence) and
             not isinstance(x, basestring))
+
+
+def flatten(l):
+    """Flatten a list of list in a new one"""
+    return list(itertools.chain.from_iterable(l))

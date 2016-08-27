@@ -15,15 +15,16 @@ class OSPFSimple(object):
         req_nhs = dag.successors(node)
         # compute the originals next-hops of the current node
         try:
-            original_nhs = [p[1]
-                            for p in self.igp_paths.default_path(node, dest)]
+            original_nhs = [
+                    p[1] for p in self.igp_paths.default_path(node, dest)]
         except KeyError:
             original_nhs = []
-        return req_nhs, original_nhs
-
-    @staticmethod
-    def require_fake_node(req_nhs, original_nhs):
-        return set(req_nhs).symmetric_difference(original_nhs)
+        max_multiplicity = max(lambda v: dag.get_edge_multiplicity(node, v),
+                               req_nhs)
+        if max_multiplicity == 1 and\
+           not set(req_nhs).symmetric_difference(original_nhs):
+            return []
+        return req_nhs
 
     def solve(self, topo, requirement_dags):
         # a list of tuples with info on the node to be attracted,
@@ -52,15 +53,16 @@ class OSPFSimple(object):
                 log.warning('Skipping requirement for dest: %s', dest)
                 continue
             for node in nx.topological_sort(dag, reverse=True)[1:]:
-                nhs, original_nhs = self.nhs_for(node, dag, dest)
-                if not self.require_fake_node(nhs, original_nhs):
-                    log.debug('%s does not require a fake node (%s - %s)',
-                              node, nhs, original_nhs)
+                nhs = self.nhs_for(node, dag, dest)
+                if not nhs:
+                    log.debug('%s does not require fake nodes towards %s',
+                              node, nhs)
                     continue
                 for req_nh in nhs:
                     log.debug('Placing a fake node for nh %s', req_nh)
-                    self.fake_ospf_lsas.append(ssu.LSA(node=node,
-                                                       nh=req_nh,
-                                                       cost=-1,
-                                                       dest=dest))
+                    for i in xrange(dag.get_edge_multiplicity(node, req_nh)):
+                        self.fake_ospf_lsas.append(ssu.LSA(node=node,
+                                                           nh=req_nh,
+                                                           cost=(-1 - i),
+                                                           dest=dest))
         return self.fake_ospf_lsas

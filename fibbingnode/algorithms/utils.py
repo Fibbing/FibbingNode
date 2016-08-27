@@ -3,7 +3,7 @@ import sys
 import functools
 import collections
 from fibbingnode import log as log
-from fibbingnode.misc.utils import extend_paths_list
+from fibbingnode.misc.utils import extend_paths_list, is_container
 import networkx as nx
 
 
@@ -85,8 +85,9 @@ class MaxHeap(object):
         self.pq = map(_ReverseCompare, initial_elem)
         heapq.heapify(self.pq)
 
-    def push(self, item):
-        heapq.heappush(self.pq, _ReverseCompare(item))
+    def push(self, *item):
+        for i in item:
+            heapq.heappush(self.pq, _ReverseCompare(i))
 
     def pop(self):
         return heapq.heappop(self.pq).obj
@@ -158,25 +159,31 @@ def add_dest_to_graph(dest, graph, edges_src=None, spt=None,
                          if needed
     :param kw: Extra parameters for the edges if any"""
     if dest in graph:
-        log.debug('%s is already in the graph', dest)
-        return
-
+        log.debug('%s is already in the graph, checking for sinks', dest)
+        in_dag = True
+    else:
+        in_dag = False
     if not edges_src:
         added = []
         sinks = find_sink(graph)
         if not sinks:
             log.info('No sinks found in the graph!')
         for node in sinks:
+            if node == dest:
+                continue
             log.info('Connected %s to %s in the graph', node, dest)
-            # TODO cleanup, atm. some places use DiGraph other IGPGraph ...
-            graph.add_edge(node, dest, **kw)
+            try:
+                graph.add_route(node, dest, **kw)
+            except AttributeError:
+                graph.add_edge(node, dest, **kw)
             added.append(node)
     else:
         added = edges_src(dest)
         log.info('Adding edges sources %s to the graph', added)
         graph.add_edges_from((s, dest) for s in added, **kw)
     ndata = {} if not node_data_gen else node_data_gen()
-    graph.add_node(dest, prefix=True, **ndata)
+    if True or not in_dag:  # preserve properties if already in the graph
+        graph.add_node(dest, prefix=True, **ndata)
     if added and spt:
         log.info('Updating SPT')
         _update_paths_towards(spt, graph, dest, added)
@@ -196,7 +203,7 @@ def _update_paths_towards(spt, g, dest, added_edges):
 def __update_default_paths(spt, g, dest, added):
     for n in g.nodes_iter():
         if n == dest:  # dest is a path in itspt
-            spt._default_paths[n] = [[n]]
+            spt._default_paths[n] = {n: [[n]]}
             spt._default_dist[n] = {n: 0}
             continue
         paths = []
@@ -255,3 +262,37 @@ def solvable(dag, graph):
             log.error('DAG: %s', dag.edges())
             return False
     return True
+
+
+def DFS(generator, consumer, generate_from=None, *elems):
+    """Perform a Depth First Search (DFS).
+
+    :param generator: The function that will generate the next set of
+                     element to examinate from the current one
+    :param consumer: The function that will consume one element.
+                     If it returns a single iterable, feed them to the
+                     generator
+                     If it returns a 2-tuple (x, y), feed x to the generator
+                     and yield y
+    :param generate_from: A starting element to feed to the generator
+    :param elems: Elements to add in the original set to visit"""
+    visited = set()
+    to_visit = set(elems)
+    if generate_from:
+        to_visit |= set(generator(generate_from))
+    while to_visit:
+        n = to_visit.pop()
+        if n in visited:
+            continue
+        visited.add(n)
+        ret = consumer(n)
+        try:
+            remains, to_yield = ret
+            if to_yield:
+                yield to_yield
+        except TypeError:
+            remains = ret
+        if remains:
+            if not is_container(remains):
+                remains = (remains,)
+            to_visit |= set(*map(generator, remains))
