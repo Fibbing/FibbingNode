@@ -4,6 +4,13 @@ from fibbingnode import log
 from fibbingnode.misc.igp_graph import ShortestPath
 
 
+def get_edge_multiplicity(dag, node, req_nh):
+    try:
+        return dag.get_edge_multiplicity(node, req_nh)
+    except AttributeError:  # Not an IGPGraph
+        return 1
+
+
 class OSPFSimple(object):
     def __init__(self):
         self.new_edge_metric = 10e4
@@ -19,7 +26,7 @@ class OSPFSimple(object):
                     p[1] for p in self.igp_paths.default_path(node, dest)]
         except KeyError:
             original_nhs = []
-        max_multiplicity = max(lambda v: dag.get_edge_multiplicity(node, v),
+        max_multiplicity = max(lambda v: get_edge_multiplicity(dag, node, v),
                                req_nhs)
         if max_multiplicity == 1 and\
            not set(req_nhs).symmetric_difference(original_nhs):
@@ -60,7 +67,7 @@ class OSPFSimple(object):
                     continue
                 for req_nh in nhs:
                     log.debug('Placing a fake node for nh %s', req_nh)
-                    for i in xrange(dag.get_edge_multiplicity(node, req_nh)):
+                    for i in xrange(get_edge_multiplicity(dag, node, req_nh)):
                         self.fake_ospf_lsas.append(ssu.LSA(node=node,
                                                            nh=req_nh,
                                                            cost=(-1 - i),

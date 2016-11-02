@@ -217,8 +217,8 @@ class SouthboundManager(SouthboundController):
         :param path: The ordered list of routerid composing the path.
                      E.g. for path = [A, B, C], the following edges will be
                      used as requirements: [](A, B), (B, C), (C, D)]"""
-        self.fwd_dags[prefix] = nx.DiGraph([(s, d) for s, d in zip(path[:-1],
-                                                                   path[1:])])
+        self.fwd_dags[prefix] = IGPGraph(
+                [(s, d) for s, d in zip(path[:-1], path[1:])])
         self.refresh_lsas()
 
     def received_initial_graph(self):
