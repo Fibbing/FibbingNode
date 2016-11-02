@@ -20,6 +20,7 @@ FWD_ADDR = 'fwd_addr'
 LINK_DATA = 'link_data'
 LINKID = 'link_id'
 LINK_TYPE = 'link_type'
+LSAGE = "age"
 LSA_TYPE = 'lsa_type'
 MASK = 'link_mask'
 METRIC = 'link_metric'
@@ -37,6 +38,8 @@ SEP_INTER_FIELD = ';'
 # Unused because we currently implicitly rely on it by doing
 # for line in ... in parse_lsdblog()
 SEP_LSA = '\n'
+
+MAX_LS_AGE = 3600  # one hour
 
 
 class Link(object):
@@ -130,22 +133,20 @@ class VirtualLink(Link):
 
 
 class LSAHeader(object):
-    def __init__(self, routerid, linkid, lsa_type, mask):
+    def __init__(self, routerid, linkid, lsa_type, mask, age):
         self.routerid = routerid
         self.linkid = linkid
         self.lsa_type = lsa_type
         self.mask = mask
+        self.age = int(age)
 
     @staticmethod
     def parse(prop_dict):
-        try:
-            mask = prop_dict[MASK]
-        except KeyError:
-            mask = None
         return LSAHeader(prop_dict[RID],
                          prop_dict[LINKID],
                          prop_dict[LSA_TYPE],
-                         mask)
+                         prop_dict.get(MASK, None),
+                         prop_dict[LSAGE])
 
 
 class LSA(object):
@@ -460,9 +461,12 @@ class LSDB(object):
                 else:
                     lsa_parts = [self.extract_lsa_properties(part)
                                  for part in lsa_info.split(SEP_GROUP) if part]
-                    lsa = LSA.parse(LSAHeader.parse(lsa_parts.pop(0)),
-                                    lsa_parts)
+                    hdr = LSAHeader.parse(lsa_parts.pop(0))
+                    lsa = LSA.parse(hdr, lsa_parts)
                     log.debug('Parsed %s: %s', action, lsa)
+                    if hdr.age >= MAX_LS_AGE:
+                        log.debug("LSA is too old, removing it from the graph")
+                        action = REM
                     provider = self.transaction if self.transaction else self
                     if action == REM:
                         provider.remove_lsa(lsa)
