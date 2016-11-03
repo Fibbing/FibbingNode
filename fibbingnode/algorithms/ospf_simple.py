@@ -31,8 +31,8 @@ class OSPFSimple(object):
             original_nhs = []
         max_multiplicity = max(
                 map(lambda v: get_edge_multiplicity(dag, node, v), req_nhs))
-        if max_multiplicity == 1 and\
-           not set(req_nhs).symmetric_difference(original_nhs):
+        if (not set(req_nhs).symmetric_difference(original_nhs) and
+                max_multiplicity == 1):
             log.debug("Same NH sets and no multiplicity from %s to %s",
                       node, dest)
             return []
