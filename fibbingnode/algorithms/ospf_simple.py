@@ -71,7 +71,7 @@ class OSPFSimple(object):
                 nhs = self.nhs_for(node, dag, dest)
                 if not nhs:
                     log.debug('%s does not require fake nodes towards %s',
-                              node, nhs)
+                              node, dest)
                     continue
                 for req_nh in nhs:
                     log.debug('Placing a fake node for %s->%s', node, req_nh)
