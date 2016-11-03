@@ -1,12 +1,11 @@
 import utils as ssu
-import networkx as nx
 from fibbingnode import log
 from fibbingnode.misc.igp_graph import ShortestPath
 
 
 def get_edge_multiplicity(dag, node, req_nh):
     try:
-        return dag.get_edge_multiplicity(node, req_nh)
+        return int(dag.get_edge_multiplicity(node, req_nh))
     except AttributeError:  # Not an IGPGraph
         return 1
 
@@ -20,17 +19,26 @@ class OSPFSimple(object):
 
     def nhs_for(self, node, dag, dest):
         req_nhs = dag.successors(node)
+        if not req_nhs:
+            log.debug('%s does not need a path towards %s', node, dest)
+            return []
         # compute the originals next-hops of the current node
         try:
             original_nhs = [
                     p[1] for p in self.igp_paths.default_path(node, dest)]
         except KeyError:
+            log.debug("%s had no NH towards %s", node, dest)
             original_nhs = []
-        max_multiplicity = max(lambda v: get_edge_multiplicity(dag, node, v),
-                               req_nhs)
+        max_multiplicity = max(
+                map(lambda v: get_edge_multiplicity(dag, node, v), req_nhs))
         if max_multiplicity == 1 and\
            not set(req_nhs).symmetric_difference(original_nhs):
+            log.debug("Same NH sets and no multiplicity from %s to %s",
+                      node, dest)
             return []
+        log.debug('Max multiplicity: %d // '
+                  'NHs sets: original(%s) - required(%s)',
+                  max_multiplicity, original_nhs, req_nhs)
         return req_nhs
 
     def solve(self, topo, requirement_dags):
@@ -59,14 +67,14 @@ class OSPFSimple(object):
             if not ssu.solvable(dag, topo):
                 log.warning('Skipping requirement for dest: %s', dest)
                 continue
-            for node in nx.topological_sort(dag, reverse=True)[1:]:
+            for node in dag:
                 nhs = self.nhs_for(node, dag, dest)
                 if not nhs:
                     log.debug('%s does not require fake nodes towards %s',
                               node, nhs)
                     continue
                 for req_nh in nhs:
-                    log.debug('Placing a fake node for nh %s', req_nh)
+                    log.debug('Placing a fake node for %s->%s', node, req_nh)
                     for i in xrange(get_edge_multiplicity(dag, node, req_nh)):
                         self.fake_ospf_lsas.append(ssu.LSA(node=node,
                                                            nh=req_nh,

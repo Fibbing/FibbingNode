@@ -179,10 +179,11 @@ def add_dest_to_graph(dest, graph, edges_src=None, spt=None,
             added.append(node)
     else:
         added = edges_src(dest)
-        log.info('Adding edges sources %s to the graph', added)
+        log.info('Connecting edges sources %s to the graph to %s', dest, added)
         graph.add_edges_from((s, dest) for s in added, **kw)
     ndata = {} if not node_data_gen else node_data_gen()
-    if True or not in_dag:  # preserve properties if already in the graph
+    # Only update the dest node if explicitely requested
+    if node_data_gen or not in_dag:
         graph.add_node(dest, prefix=True, **ndata)
     if added and spt:
         log.info('Updating SPT')
