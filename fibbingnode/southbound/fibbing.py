@@ -419,6 +419,7 @@ class AttractionPoint(object):
         self.metric = metric
         self.node = node
         self.advertized = False
+        self.ttl = CFG.get(DEFAULTSECT, 'fake_lsa_ttl')
 
     def __str__(self):
         return '%s[%s] via %s' % (self.address, self.metric, self.node.id)
@@ -429,8 +430,8 @@ class AttractionPoint(object):
         """
         log.debug('%s advertizes %s via %s',
                   self.node.id, prefix, self.address)
-        self.node.advertize(prefix.with_prefixlen,
-                            via=self.address, metric=self.metric)
+        self.node.advertize(prefix.with_prefixlen, via=self.address,
+                            metric=self.metric, ttl=self.ttl)
         self.advertized = True
 
     def retract(self, prefix):
