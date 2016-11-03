@@ -465,7 +465,8 @@ class LSDB(object):
                     lsa = LSA.parse(hdr, lsa_parts)
                     log.debug('Parsed %s: %s', action, lsa)
                     if hdr.age >= MAX_LS_AGE:
-                        log.debug("LSA is too old, removing it from the graph")
+                        log.debug("LSA is too old (%d) removing it from the "
+                                  "graph", hdr.age)
                         action = REM
                     provider = self.transaction if self.transaction else self
                     if action == REM:
@@ -578,7 +579,6 @@ class LSDB(object):
 
 class Transaction(object):
     def __init__(self):
-        log.debug('Initiating new LSA transaction')
         self.add = []
         self.rem = []
 
@@ -589,7 +589,9 @@ class Transaction(object):
         self.rem.append(lsa)
 
     def commit(self, lsdb):
-        log.debug('Committing LSA transaction')
+        if self.rem or self.add:
+            log.debug('Committing a transaction of %d LSAs',
+                      len(self.rem), len(self.add))
         for lsa in self.rem:
             lsdb.remove_lsa(lsa)
         for lsa in self.add:
@@ -631,8 +633,7 @@ class PrivateAddressStore(object):
             ip_to_bd.clear()
             router_private_address.clear()
         except IOError as e:
-            log.error('Cannot read private address file')
-            log.error(str(e))
+            log.warning('Cannot read private address file')
             ip_to_bd.clear()
             router_private_address.clear()
         return router_private_address, ip_to_bd
