@@ -11,11 +11,11 @@ and flood arbitrary Type-5 LSA which are used to inject the lies in the network.
 2. The Southbound controller, the [fibbingnode](https://github.com/Fibbing/FibbingNode/tree/master/fibbingnode) python module, that will control the quagga ospfd instances
 and trigger the injection/removal of these LSAs, as well as infer the current network topology
 and decide whether the current instance of the controller is the 'master' one in case multiple controllers are
-present in the network. A critical file to tune is the config file, whose defaults are specified in [fibbingnode/res/default.cfg](https://github.com/Fibbing/FibbingNode/blob/master/fibbingnode/res/default.cfg).It can then be run via 
+present in the network. A critical file to tune is the config file, whose defaults are specified in [fibbingnode/res/default.cfg](https://github.com/Fibbing/FibbingNode/blob/master/fibbingnode/res/default.cfg).It can then be run via
 ```bash
 python2 -m fibbingnode
 ```
-3. The Northbound controller, [fibbingnode/shapeshifter](https://github.com/Fibbing/FibbingNode/tree/master/fibbingnode/algorithms)
+3. The Northbound controller, [fibbingnode/algorithms](https://github.com/Fibbing/FibbingNode/tree/master/fibbingnode/algorithms)
 which implements the algorithms to compute the augmented topology and then communicates to the
 southern part through a json insterface.
 
