@@ -208,7 +208,8 @@ class Router(Node):
         self.router.vtysh(*cmd, configure=True)
 
     def advertize(self, prefix, via, metric, ttl):
-        self._fibbing(prefix, 'via', via, 'cost', metric, 'ttl', ttl)
+        self._fibbing(str(prefix), 'via', str(via), 'cost', str(metric),
+                      'ttl', str(ttl))
 
     def retract(self, prefix):
         self._fibbing(prefix, no=True)

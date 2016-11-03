@@ -64,7 +64,7 @@ class FibbingCLI(Cmd):
         except KeyError:
             log.error('Unknown node %s', items[0])
 
-    def do_add_route(self, line):
+    def do_add_route(self, line=''):
         """Setup a fibbing route
         add_route network via1 metric1 via2 metric2 ..."""
         items = line.split(' ')

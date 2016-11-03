@@ -204,7 +204,17 @@ class FibbingManager(object):
         :param network: the network prefix to attract
         :param points: a list of (address, metric) of points
         """
-        net = ip_network(network)
+        try:
+            net = ip_network(network)
+        except ValueError:
+            log.error('%s is not a valid IP network', network)
+            return
+        try:
+            points_data = [(ip_address(addr), int(metric))
+                           for addr, metric in points]
+        except ValueError as e:
+            log.error("Failed to parse an attraction point: %s", e)
+            return
         # Retrieve existing route if any
         try:
             route = self.routes[net]
@@ -222,7 +232,7 @@ class FibbingManager(object):
         nodes = [n for n in self.nodes.values() if n not in mappings]
         # Generate attraction points
         attraction_points = [AttractionPoint(addr, metric, nodes.pop())
-                             for addr, metric in points if addr]
+                             for addr, metric in points_data]
         # Update used nodes mapping
         for p in attraction_points:
             mappings.add(p.node)
@@ -394,7 +404,7 @@ class FibbingRoute(object):
             return point.node
         except KeyError:
             log.info('Unkown attraction point %s for prefix %s',
-                      address, self.prefix)
+                     address, self.prefix)
             return None
 
     def advertize(self):
@@ -430,7 +440,7 @@ class AttractionPoint(object):
         """
         log.debug('%s advertizes %s via %s',
                   self.node.id, prefix, self.address)
-        self.node.advertize(prefix.with_prefixlen, via=self.address,
+        self.node.advertize(prefix.with_prefixlen, via=self.address.compressed,
                             metric=self.metric, ttl=self.ttl)
         self.advertized = True
 
