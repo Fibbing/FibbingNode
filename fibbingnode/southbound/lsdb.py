@@ -6,6 +6,7 @@ import functools
 from threading import Thread
 import json
 from ConfigParser import DEFAULTSECT
+from operator import methodcaller
 
 from fibbingnode import log, CFG
 from interface import ShapeshifterProxy
@@ -115,9 +116,7 @@ class StubLink(Link):
         return ip_interface('%s/%s' % (self.address, self.mask)).with_prefixlen
 
     def endpoints(self, lsdb):
-        # return [self.prefix]
         #  We don't want stub links on the graph
-        log.debug('Ignoring stub link to %s', self.prefix)
         return []
 
 
@@ -563,8 +562,8 @@ class LSDB(object):
 
     def for_all_listeners(self, funcname, *args, **kwargs):
         """Apply funcname to all listeners"""
-        for i in self.listener.itervalues():
-            getattr(i, funcname)(*args, **kwargs)
+        f = methodcaller(funcname, *args, **kwargs)
+        map(f, self.listener.itervalues())
 
     def apply_secondary_addresses(self, graph):
         for src, dst in graph.router_links:
@@ -591,7 +590,7 @@ class Transaction(object):
     def commit(self, lsdb):
         if self.rem or self.add:
             log.debug('Committing a transaction of %d LSAs',
-                      len(self.rem), len(self.add))
+                      len(self.rem) + len(self.add))
         for lsa in self.rem:
             lsdb.remove_lsa(lsa)
         for lsa in self.add:
