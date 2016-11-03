@@ -11,6 +11,7 @@ class TestSimple(test_merger.MergerTestCase):
     def _test(self, igp_topo, fwd_dags, expected_lsa_count):
         solver = self.solver_provider()
         lsas = solver.solve(igp_topo, fwd_dags)
+        test_merger.log.debug('solved reqs with LSAs: %s', lsas)
         self.assertTrue(test_merger.check_fwd_dags(fwd_dags,
                                                    igp_topo,
                                                    lsas,

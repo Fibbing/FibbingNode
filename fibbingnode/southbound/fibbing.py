@@ -425,11 +425,15 @@ class AttractionPoint(object):
         :param node: The node advertizing this
         :return:
         """
-        self.address = address
+        self._address = address
         self.metric = metric
         self.node = node
         self.advertized = False
         self.ttl = CFG.get(DEFAULTSECT, 'fake_lsa_ttl')
+
+    @property
+    def address(self):
+        return self._address.compressed
 
     def __str__(self):
         return '%s[%s] via %s' % (self.address, self.metric, self.node.id)
@@ -440,7 +444,7 @@ class AttractionPoint(object):
         """
         log.debug('%s advertizes %s via %s',
                   self.node.id, prefix, self.address)
-        self.node.advertize(prefix.with_prefixlen, via=self.address.compressed,
+        self.node.advertize(prefix.with_prefixlen, via=self.address,
                             metric=self.metric, ttl=self.ttl)
         self.advertized = True
 

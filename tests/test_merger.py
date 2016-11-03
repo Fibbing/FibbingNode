@@ -51,6 +51,8 @@ def check_fwd_dags(fwd_req, topo, lsas, solver):
     f_ids = set()
     for lsa in lsas:
         if lsa.cost > 0:
+            if not lsa.node:  # We added a pure fake LSA
+                continue
             f_id = '__f_%s_%s_%s' % (lsa.node, lsa.nh, lsa.dest)
             f_ids.add(f_id)
             fake_nodes[(lsa.node, f_id, lsa.dest)] = lsa.nh
@@ -293,6 +295,7 @@ class MergerTestCase(unittest.TestCase):
     def _test(self, igp_topo, fwd_dags, expected_lsa_count):
         solver = self.solver_provider()
         lsas = solver.solve(igp_topo, fwd_dags)
+        log.debug('solved reqs with LSAs: %s', lsas)
         self.assertTrue(check_fwd_dags(fwd_dags, igp_topo, lsas, solver))
         log.debug('lsa count: %s, expected: %s', len(lsas), expected_lsa_count)
         self.assertTrue(len(lsas) == expected_lsa_count)

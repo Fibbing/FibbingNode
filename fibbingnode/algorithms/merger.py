@@ -68,7 +68,7 @@ class Node(object):
 
 class Merger(object):
     def __init__(self):
-        self.new_edge_metric = 10e3  # Default cost for new edges in the graph
+        self.new_edge_metric = int(10e3)  # Default cost for new edges in the graph
         self.g = self._p = self.dag = self.dest = self.reqs = None
         self.ecmp = collections.defaultdict(set)
 

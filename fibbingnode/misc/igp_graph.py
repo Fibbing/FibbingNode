@@ -333,13 +333,21 @@ class ShortestPath(object):
         """Return the paths of the pure IGP shortest path if Fibbing was not in
         use on the current network, between u an v or a dict of paths if v is
         None"""
-        return self._get(self._default_paths, u, v)
+        try:
+            return self._get(self._default_paths, u, v)
+        except KeyError as e:
+            log.debug('%s had no path to %s (lookup key: %s)', u, v, e)
+            return []
 
     def default_cost(self, u, v=None):
         """Return the cost of the pure IGP shortest path if Fibbing was not in
         use on the current network, between u and v or a dict of cost if v
         is None"""
-        return self._get(self._default_dist, u, v)
+        try:
+            return self._get(self._default_dist, u, v)
+        except KeyError as e:
+            log.debug('%s had no path to %s (lookup key: %s)', u, v, e)
+            return sys.maxint
 
     def __repr__(self):
         return '\n'.join('%s -> %s: %s' % (src, dst, p)

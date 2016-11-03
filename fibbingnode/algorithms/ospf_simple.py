@@ -10,14 +10,21 @@ def get_edge_multiplicity(dag, node, req_nh):
         return 1
 
 
+def is_fake(g, u, v):
+    try:
+        return g.is_fake_route(u, v)
+    except AttributeError:
+        return False
+
+
 class OSPFSimple(object):
     def __init__(self):
-        self.new_edge_metric = 10e4
+        self.new_edge_metric = int(10e4)
 
     def get_fake_lsas(self):
         return self.fake_ospf_lsas
 
-    def nhs_for(self, node, dag, dest):
+    def nhs_for(self, node, dest, dag):
         req_nhs = dag.successors(node)
         if not req_nhs:
             log.debug('%s does not need a path towards %s', node, dest)
@@ -49,10 +56,9 @@ class OSPFSimple(object):
         self.reqs = requirement_dags
         self.igp_graph = topo
         self.igp_paths = ShortestPath(self.igp_graph)
-        log.debug('Original SPT: %s', self.igp_paths)
         # process input forwarding DAGs, one at the time
         for dest, dag in requirement_dags.iteritems():
-            log.debug('Solving DAG for dest %s', dest)
+            log.info('Solving DAG for dest %s', dest)
             self.dest, self.dag = dest, dag
             log.debug('Checking dest in dag')
             ssu.add_dest_to_graph(dest, dag)
@@ -68,10 +74,8 @@ class OSPFSimple(object):
                 log.warning('Skipping requirement for dest: %s', dest)
                 continue
             for node in dag:
-                nhs = self.nhs_for(node, dag, dest)
+                nhs = self.nhs_for(node, dest, dag)
                 if not nhs:
-                    log.debug('%s does not require fake nodes towards %s',
-                              node, dest)
                     continue
                 for req_nh in nhs:
                     log.debug('Placing a fake node for %s->%s', node, req_nh)
@@ -80,4 +84,13 @@ class OSPFSimple(object):
                                                            nh=req_nh,
                                                            cost=(-1 - i),
                                                            dest=dest))
+            # Check whether we need to include one more fake node to handle
+            # the case where we create a new route from scratch.
+            for p in dag.predecessors_iter(dest):
+                if not is_fake(topo, p, dest):
+                    continue
+                log.debug('%s is a terminal node towards %s but had no prior '
+                          'route to it! Adding a synthetic route', p, dest)
+                self.fake_ospf_lsas.append(
+                        ssu.GlobalLie(dest, self.new_edge_metric, p))
         return self.fake_ospf_lsas

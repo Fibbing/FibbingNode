@@ -408,21 +408,25 @@ class LSDB(object):
         """
         # If we have a src address, we want the set of private IPs
         # Otherwise we want any IP of dst
-        u, v, key = ((src, dst, 'dst_address') if src
-                     else (dst, self.graph.neighbors(dst)[0], 'src_address'))
-        try:
-            edge = self.graph[u][v]
-        except KeyError:
-            log.error('%s-%s not found in graph when resolving '
-                      'forwarding address of (%s,%s)', u, v, src, dst)
-            return None
-        try:
-            return edge[key]
-        except KeyError:
-            log.error('%s not found in the properties of edge %s-%s '
-                      'when resolving forwarding address of (%s, %s)\n%s',
-                      key, u, v, src, dst, edge)
-            return None
+        if src:
+            try:
+                return self.graph[src][dst]['dst_address']
+            except KeyError as e:
+                log.error("Couldn't resolve local forwarding of %s-%s, missing"
+                          " key %s", src, dst, e)
+        else:
+            try:
+                data = filter(lambda v: v is not None,
+                              (self.graph[dst][succ].get('src_address', None)
+                               for succ in self.graph.successors_iter(dst)))
+                if data:
+                    return min(data)
+                log.error("Cannot use %s as nexthop as it has no physical "
+                          "link to other routers!", dst)
+            except KeyError:
+                log.error("Couldn't find nexthop %s when resolving global "
+                          "forwarding address", dst)
+        return None
 
     def remove_lsa(self, lsa):
         lsdb = self.lsdb(lsa)
