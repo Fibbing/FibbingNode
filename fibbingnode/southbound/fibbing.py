@@ -251,6 +251,9 @@ class FibbingManager(object):
         except KeyError:
             log.debug('No route for network %s', net)
 
+        except Exception as other_exception:
+            log.exception(other_exception)
+
     def remove_route_part(self, network, advertize, *elems):
         """
         Remove elements of a route
@@ -270,6 +273,17 @@ class FibbingManager(object):
                 self.routes.pop(net)
         except KeyError:
             log.debug('No route for network %s', network)
+
+    def remove_session_routes(self, session=None):
+        """Removes the routes that were forced by the application in the session.
+        This function is ment to be invoked when application disconnects, but for the moment we will
+        use it in self.proxy_connected
+
+        TODO: Keep track of which routes were forced by the application in the current session
+        TODO: Make this function be invoked in the SJMPServer when the application disconnects
+        """
+        log.info("Removing routes from current session...")
+        map(self.remove_route, self.routes.keys())
 
     def infer_graph(self):
         self.root.parse_lsdblog()
@@ -322,6 +336,8 @@ class FibbingManager(object):
 
     def proxy_connected(self, session):
         self.root.send_lsdblog_to(session)
+
+        self.remove_session_routes(session)
 
     @property
     def lsdb(self):

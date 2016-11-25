@@ -1,6 +1,7 @@
 """This file defines Northbound application controller classes."""
 
 import abc
+import copy
 from ConfigParser import DEFAULTSECT
 
 import networkx as nx
@@ -219,6 +220,27 @@ class SouthboundManager(SouthboundController):
                      used as requirements: [](A, B), (B, C), (C, D)]"""
         self.fwd_dags[prefix] = IGPGraph(
                 [(s, d) for s, d in zip(path[:-1], path[1:])])
+        self.refresh_lsas()
+
+    def add_dag_requirement(self, prefix, dag):
+        self.fwd_dags[prefix] = dag.copy()
+        self.refresh_lsas()
+
+    def add_dag_requirements_from(self, fw_dags):
+        """
+        Adds a bunch of fw dag requirements
+        :param fw_dags: dictionary prefix -> dag
+        """
+        self.fwd_dags.update(copy.deepcopy(fw_dags))
+        self.refresh_lsas()
+
+    def remove_dag_requirement(self, prefix):
+        if prefix in self.fwd_dags.keys():
+            self.fwd_dags.pop(prefix)
+            self.refresh_lsas()
+
+    def remove_all_dag_requirements(self):
+        self.fwd_dags.clear()
         self.refresh_lsas()
 
     def received_initial_graph(self):

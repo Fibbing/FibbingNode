@@ -9,6 +9,7 @@ from fibbingnode.misc.mininetlib import get_logger, PRIVATE_IP_KEY,\
 import fibbingnode.misc.router
 from fibbingnode.misc.router import QuaggaRouter, RouterConfigDict
 from fibbingnode.misc.utils import ConfigDict
+from fibbingnode import CFG
 
 log = get_logger()
 fibbingnode.misc.router.log = log
@@ -97,6 +98,22 @@ class MininetRouterConfig(RouterConfigDict):
         self.ospf.redistribute.connected = 1000
         self.ospf.redistribute.static = 1000
         self.ospf.router_id = router.id
+
+        # Parse LSA throttling parameters
+        delay = CFG.get("DEFAULT", 'delay')
+        initial_holdtime = CFG.get("DEFAULT", 'initial_holdtime')
+        max_holdtime = CFG.get("DEFAULT", 'max_holdtime')
+
+        # Parse minimum LS intervals
+        min_ls_interval = CFG.get("DEFAULT", 'min_ls_interval')
+        min_ls_arrival = CFG.get("DEFAULT", 'min_ls_arrival')
+
+        self.ospf.throttling = ConfigDict(spf=ConfigDict(delay=delay,
+                                                         initial_holdtime=initial_holdtime,
+                                                         max_holdtime=max_holdtime),
+                                          lsa_all=ConfigDict(min_ls_interval=min_ls_interval))
+
+        self.ospf.lsa = ConfigDict(min_ls_arrival=min_ls_arrival)
 
     def build_ospf(self, router):
         cfg = super(MininetRouterConfig, self).build_ospf(router)

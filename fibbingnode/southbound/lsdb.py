@@ -22,6 +22,7 @@ LINK_DATA = 'link_data'
 LINKID = 'link_id'
 LINK_TYPE = 'link_type'
 LSAGE = "age"
+LSA_SEQNUM = 'seq_num'
 LSA_TYPE = 'lsa_type'
 MASK = 'link_mask'
 METRIC = 'link_metric'
@@ -132,12 +133,13 @@ class VirtualLink(Link):
 
 
 class LSAHeader(object):
-    def __init__(self, routerid, linkid, lsa_type, mask, age):
+    def __init__(self, routerid, linkid, lsa_type, mask, age, lsa_seqnum):
         self.routerid = routerid
         self.linkid = linkid
         self.lsa_type = lsa_type
         self.mask = mask
         self.age = int(age)
+        self.lsa_seqnum = int(lsa_seqnum)
 
     @staticmethod
     def parse(prop_dict):
@@ -145,8 +147,8 @@ class LSAHeader(object):
                          prop_dict[LINKID],
                          prop_dict[LSA_TYPE],
                          prop_dict.get(MASK, None),
-                         prop_dict[LSAGE])
-
+                         prop_dict[LSAGE],
+                         prop_dict[LSA_SEQNUM])
 
 class LSA(object):
     TYPE = '0'
@@ -444,6 +446,21 @@ class LSDB(object):
         except TypeError:
             pass  # LSDB is None
 
+    def get_current_seq_number(self, lsa):
+        try:
+            return self.lsdb(lsa)[lsa.key()].seqnum
+        except (KeyError, AttributeError):
+            return None
+
+    @staticmethod
+    def is_newer_seqnum(a, b):
+        """
+        As of OSPFv2, sequence numbers should simply be treated as signed
+        integers ranging from the oldest sequence number possible 0x80000001
+        (-N+1 in decimal) to the highest 0x7FFFFFFF (N-1 in decimal).
+        """
+        return a > b
+
     def process_lsa(self):
         while self.keep_running:
             commit = False
@@ -466,7 +483,21 @@ class LSDB(object):
                                  for part in lsa_info.split(SEP_GROUP) if part]
                     hdr = LSAHeader.parse(lsa_parts.pop(0))
                     lsa = LSA.parse(hdr, lsa_parts)
-                    log.debug('Parsed %s: %s', action, lsa)
+                    lsa.seqnum = hdr.lsa_seqnum
+                    new_seqnum = hdr.lsa_seqnum
+
+                    log.debug('Parsed %s: %s [%d]', action, lsa, lsa.seqnum)
+
+                    # For now, we just log lsa seq_num and ignore an LSA when
+                    # it has an older seq_num than the one in the database
+                    c_seqnum = self.get_current_seq_number(lsa)
+                    if c_seqnum:
+                        if not self.is_newer_seqnum(new_seqnum, c_seqnum) and new_seqnum != c_seqnum:
+                            # Can get the same seqnum when flushing an LSA from the domain
+                            log.debug("OLD seqnum for LSA, ignoring it...")
+                            self.queue.task_done()
+                            continue
+
                     if hdr.age >= MAX_LS_AGE:
                         log.debug("LSA is too old (%d) removing it from the "
                                   "graph", hdr.age)
@@ -490,6 +521,7 @@ class LSDB(object):
                 new_graph = self.build_graph()
                 # Compute graph difference and update it
                 self.update_graph(new_graph)
+
 
     def __str__(self):
         strs = [str(lsa) for lsa in chain(self.routers.values(),

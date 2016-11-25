@@ -406,6 +406,18 @@ class TopologyDB(object):
             raise TypeError('%s is not a router' % x)
         return n['routerid']
 
+    def interfaceIP(self,router,interface):
+        """
+        Returns the interface IP of a routers
+        :param router:
+        :param switch:
+        :return:
+        """
+        return self._interface(router,interface)['ip'].split("/")[0]
+
+    def type(self,node):
+        return self.network[node]['type']
+
     def parse_net(self, net):
         """Stores the content of the given network"""
         for h in net.hosts:

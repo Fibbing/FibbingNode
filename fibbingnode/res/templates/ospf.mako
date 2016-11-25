@@ -35,4 +35,9 @@ router ospf
   % for itf in node.ospf.passive_interfaces:
   passive-interface ${itf.name}
   % endfor
+  % if node.ospf.throttling and node.ospf.lsa:
+  timers throttle spf ${node.ospf.throttling.spf.delay} ${node.ospf.throttling.spf.initial_holdtime} ${node.ospf.throttling.spf.max_holdtime}
+  timers throttle lsa all ${node.ospf.throttling.lsa_all.min_ls_interval}
+  timers lsa arrival ${node.ospf.lsa.min_ls_arrival}
+  % endif
 !
