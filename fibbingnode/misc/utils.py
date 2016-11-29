@@ -2,6 +2,7 @@ import os
 import sys
 import collections
 import itertools
+import threading
 
 from time import sleep
 from fibbingnode import log
@@ -153,3 +154,17 @@ def is_container(x):
 def flatten(l):
     """Flatten a list of list in a new one"""
     return list(itertools.chain.from_iterable(l))
+
+
+def daemon_thread(target, name, *args, **kwargs):
+    """Build a daemon thread"""
+    t = threading.Thread(target=target, name=name, *args, **kwargs)
+    t.setDaemon(True)
+    return t
+
+
+def start_daemon_thread(target, name, *args, **kwargs):
+    """Create a daemon thread and start it"""
+    t = daemon_thread(target=target, name=name, *args, **kwargs)
+    t.start()
+    return t

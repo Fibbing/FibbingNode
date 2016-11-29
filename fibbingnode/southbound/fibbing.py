@@ -3,13 +3,13 @@ from collections import OrderedDict
 from itertools import groupby
 from operator import itemgetter
 import subprocess
-from threading import Thread
 from fibbingnode import log, CFG
 from link import Link, PhysicalLink
 from entities import Router, RootRouter, Bridge
 from ipaddress import ip_network, ip_interface, ip_address
 from fibbingnode.misc.sjmp import SJMPServer
 from interface import FakeNodeProxy
+from fibbingnode.misc.utils import daemon_thread
 
 
 def gen_physical_ports(port_list):
@@ -60,17 +60,16 @@ class FibbingManager(object):
                            (instance_number << host_prefix))
         controller_net = ip_address(controller_base)
         self.net = ip_network('%s/%s' % (controller_net, controller_prefix))
-        self.graph_thread = Thread(target=self.infer_graph,
-                                   name="Graph inference thread")
-        self.graph_thread.setDaemon(True)
+        self.graph_thread = daemon_thread(target=self.infer_graph,
+                                          name="Graph inference thread")
         self.json_proxy = SJMPServer(hostname=CFG.get(DEFAULTSECT,
                                                       'json_hostname'),
                                      port=CFG.getint(DEFAULTSECT,
                                                      'json_port'),
                                      invoke=self.proxy_connected,
                                      target=FakeNodeProxyImplem(self))
-        self.json_thread = Thread(target=self.json_proxy.communicate)
-        self.json_thread.setDaemon(True)
+        self.json_thread = daemon_thread(target=self.json_proxy.communicate,
+                                         name="JSON proxy thread")
         # Used to assign unique router-id to each node
         self.next_id = 1
         self.links = []

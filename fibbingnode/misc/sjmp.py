@@ -7,8 +7,9 @@ import socket
 import select
 import inspect
 import logging
-from threading import Thread
 from urlparse import urlparse
+
+from .utils import start_daemon_thread
 
 log = logging.getLogger(__name__)
 
@@ -253,12 +254,11 @@ class SJMPServer():
             except socket.error:
                 return
             else:
-                thread = Thread(target=_new_server_client,
-                                args=(client, self.invoke, self.target),
-                                name='SJMPClient%s' % self.client_count)
                 self.client_count += 1
-                thread.setDaemon(True)
-                thread.start()
+                thread = start_daemon_thread(
+                        target=_new_server_client,
+                        args=(client, self.invoke, self.target),
+                        name='SJMPClient%s' % self.client_count)
 
     def stop(self):
         self.server_socket.close()
