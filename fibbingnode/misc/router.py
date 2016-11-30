@@ -177,12 +177,12 @@ class VTYSH(object):
         :param *args: list of command elements
         """
         configure = kwargs.pop('configure', False)
-        # Do we have a session already open?
-        if not self.session:
-            # create one otherwise
-            self._open()
         # We don't want the expiration timer to mess with us
         with self.lock:
+            # Do we have a session already open?
+            if not self.session:
+                # create one otherwise
+                self._open()
             # Cancel exp. timer
             self.reset_timer.cancel()
             if configure:
