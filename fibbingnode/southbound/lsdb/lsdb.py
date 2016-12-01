@@ -169,10 +169,7 @@ class LSDB(object):
             if self.is_old_seqnum(lsa):
                 log.debug("OLD seqnum for LSA, ignoring it...")
                 action = None
-            if is_expired_lsa(lsa):
-                log.debug("LSA is too old (%d) removing it from the graph",
-                          lsa.age)
-                action = REM
+
             # Perform the update if it is still applicable
             if action == REM:
                 self.remove_lsa(lsa)
@@ -226,7 +223,12 @@ class LSDB(object):
         for lsa in chain(self.routers.itervalues(),
                          self.networks.itervalues(),
                          self.ext_networks.itervalues()):
-            lsa.apply(new_graph, self)
+
+            if is_expired_lsa(lsa):
+                log.debug("LSA %s is too old (%d) ignoring it!",
+                          lsa, lsa.age)
+            else:
+                lsa.apply(new_graph, self)
         # Contract all IPs to their respective router-id
         for rlsa in self.routers.itervalues():
             rlsa.contract_graph(new_graph,
