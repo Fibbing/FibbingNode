@@ -37,7 +37,7 @@ logging.addLevelName(logging.CRITICAL, "\033[1;45m%s\033[1;0m" %
                                        logging.getLevelName(logging.CRITICAL))
 
 log = logging.getLogger(__name__)
-fmt = logging.Formatter('[%(levelname)20s] %(funcName)s: %(message)s')
+fmt = logging.Formatter('%(asctime)s [%(levelname)20s] %(funcName)s: %(message)s')
 handler = logging.StreamHandler()
 handler.setFormatter(fmt)
 log.addHandler(handler)
