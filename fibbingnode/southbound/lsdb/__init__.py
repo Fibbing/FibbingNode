@@ -1,4 +1,4 @@
-from .lsdb import LSDB
+from .lsdb import LSDB, PrivateAddressStore
 
 
-__all__ = [LSDB]
+__all__ = [LSDB, PrivateAddressStore]
