@@ -60,7 +60,7 @@ class QuaggaRouter(object):
         Delete this node and its associate resources
         """
         self.call('sysctl', '-w', 'net.ipv4.ip_forward=0')
-        self.call('sysctl', '-w', 'net.ipv4.icmp_errors_use_inbound_ifaddr=1')
+        self.call('sysctl', '-w', 'net.ipv4.icmp_errors_use_inbound_ifaddr=0')
         # Stop ospfd
         pid = read_pid(self.ospfd_pid)
         if pid:
@@ -88,6 +88,7 @@ class QuaggaRouter(object):
         self.create_zebra_conf(cfg_node)
         # Enable ipv4 forwarding
         self.call('sysctl', '-w', 'net.ipv4.ip_forward=1')
+        self.call('sysctl', '-w', 'net.ipv4.icmp_errors_use_inbound_ifaddr=1')
         # Start zebra/ospf
         self.call(ZEBRA_EXEC, '-f', self.zebra_cfg, '-i', self.zebra_pid,
                   '-z', self.zebra_api, '-d', '-k')
