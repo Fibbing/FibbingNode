@@ -60,6 +60,7 @@ class QuaggaRouter(object):
         Delete this node and its associate resources
         """
         self.call('sysctl', '-w', 'net.ipv4.ip_forward=0')
+        self.call('sysctl', '-w', 'net.ipv4.icmp_errors_use_inbound_ifaddr=1')
         # Stop ospfd
         pid = read_pid(self.ospfd_pid)
         if pid:

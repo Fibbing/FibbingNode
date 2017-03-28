@@ -26,3 +26,4 @@ lab_comment.pdf
 *.egg
 .cache
 .eggs
+tags
