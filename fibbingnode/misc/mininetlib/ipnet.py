@@ -128,7 +128,7 @@ class IPNet(Mininet):
                 self.ip_allocs[str(i.ip)] = n
                 try:
                     for sec in i.params[PRIVATE_IP_KEY]:
-                        self.ip_allocs[str(sec)] = n
+                        self.ip_allocs[str(sec.ip)] = n
                 except KeyError:
                     pass
         log.info('*** Starting %s routers\n' % len(self.routers))
