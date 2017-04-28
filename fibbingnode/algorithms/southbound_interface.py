@@ -204,8 +204,9 @@ class SouthboundManager(SouthboundController):
             log.debug('Skipping as we do not yet have a topology')
             return self.advertized_lsa
         try:
-            self.optimizer.solve(self.igp_graph,
-                                 self.fwd_dags)
+            self.optimizer.solve(self.igp_graph.copy(),
+                                 {p: dag.copy()
+                                  for p, dag in self.fwd_dags.iteritems()})
         except Exception as e:
             log.exception(e)
             return self.advertized_lsa
