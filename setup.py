@@ -28,7 +28,7 @@ setup(
     install_requires=[
         'setuptools',
         'mako',
-        'networkx',
+        'networkx==1.11',
         'py2-ipaddress'
     ],
     extras_require={
